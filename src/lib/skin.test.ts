@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUILT_IN } from '../skins';
-import { FONTS, SKIN_PROMPT, contrast, skinVariables, validateSkin } from './skin';
+import { FONTS, SKIN_PROMPT, contrast, pensOf, skinVariables, validateSkin } from './skin';
 
 const legal = BUILT_IN.daylight as Record<string, unknown>;
 const tweak = (path: string, value: unknown) => {
@@ -56,6 +56,62 @@ describe('validateSkin refuses what could leak notes or hide text', () => {
 
   it('refuses an oversized texture', () => {
     expect(errorsOf(tweak('paper.texture', `data:image/png;base64,${'A'.repeat(250_000)}`)).join(' ')).toMatch(/limit is 200 KB/);
+  });
+});
+
+describe('notebook paper: dotted rules, a solid line every so often, a header box, a second pen', () => {
+  const notebook = (paper: Record<string, unknown>, ink: Record<string, unknown> = {}) => {
+    const copy = structuredClone(legal) as Record<string, Record<string, unknown>>;
+    Object.assign(copy.paper, paper);
+    Object.assign(copy.ink, ink);
+    return copy;
+  };
+
+  it('accepts them, and older skins without them still mean what they did', () => {
+    const r = validateSkin(notebook({ rule: 'dotted', every: 8, header: 'date-title' }, { red: '#b5232b' }));
+    expect(r.ok && r.skin.paper).toMatchObject({ rule: 'dotted', every: 8, header: 'date-title' });
+    expect(r.ok && r.skin.ink.red).toBe('#b5232b');
+    const old = validateSkin(legal);
+    expect(old.ok && old.skin.paper).toMatchObject({ rule: 'solid', every: 0, header: 'none' });
+    // A skin with no second pen colour draws the "red pen" in its accent, as before.
+    expect(old.ok && old.skin.ink.red).toBe((legal.ink as Record<string, string>).accent);
+  });
+
+  it.each([
+    [{ rule: 'dashed;background:url(https://example.com)' }, /paper.rule must be/],
+    [{ every: 2.5 }, /paper.every must be a whole number/],
+    [{ every: 40 }, /paper.every must be a whole number/],
+    [{ header: '<script>' }, /paper.header must be/],
+  ])('refuses paper %j', (paper, msg) => {
+    expect(errorsOf(notebook(paper)).join(' ')).toMatch(msg);
+  });
+
+  it('accepts the colours of a four-colour pen, and offers those pens only when given', () => {
+    const r = validateSkin(notebook({}, { red: '#b5232b', black: '#1c1c1e', green: '#1f7a3a' }));
+    expect(r.ok && pensOf(r.skin)).toEqual(['pen', 'black', 'red', 'green', 'highlighter']);
+    const old = validateSkin(legal);
+    expect(old.ok && pensOf(old.skin)).toEqual(['pen', 'red', 'highlighter']);
+  });
+
+  it('refuses a second pen colour that is not a colour, or can hardly be seen', () => {
+    expect(errorsOf(notebook({}, { red: 'red; x: url(https://example.com)' })).join(' ')).toMatch(/ink.red must be a color/);
+    expect(errorsOf(notebook({}, { red: '#fafafa' })).join(' ')).toMatch(/ink.red on paper.color/);
+  });
+
+  it('draws dotted rules with a solid one every eighth line, as the notebook does', () => {
+    const r = validateSkin(notebook({ rule: 'dotted', every: 8, spacing: 32 }));
+    if (!r.ok) throw new Error(r.errors.join('; '));
+    const rules = decodeURIComponent(skinVariables(r.skin)['--pad-rules']);
+    // One tile is eight lines tall: seven dotted, one solid.
+    expect(rules).toContain("height='256'");
+    expect(rules.match(/stroke-dasharray/g)).toHaveLength(7);
+    expect(rules.match(/<line /g)).toHaveLength(8);
+  });
+
+  it('draws plain solid rules as it always did when nothing else is asked for', () => {
+    const r = validateSkin(legal);
+    if (!r.ok) throw new Error(r.errors.join('; '));
+    expect(skinVariables(r.skin)['--pad-rules']).toMatch(/^repeating-linear-gradient/);
   });
 });
 

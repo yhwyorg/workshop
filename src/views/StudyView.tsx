@@ -86,11 +86,13 @@ const NOTES_W = 460;
  * times. The Bible and the notes shrink as a whole to make room, so the ink on them
  * stays on its words. On a phone every pane is a tab.
  */
-export default function StudyView({ study, lengths, update, openMenu }: {
+export default function StudyView({ study, lengths, update, openMenu, pens = PENS }: {
   study: Study | undefined;
   lengths: Lengths | null;
   update: (id: string, change: (s: Study) => Study) => void;
   openMenu: () => void;
+  /** The pens the paper style offers, in order (see pensOf). */
+  pens?: Tool[];
 }) {
   const passage: Passage | null = (() => {
     if (!study || !lengths) return null;
@@ -390,7 +392,7 @@ export default function StudyView({ study, lengths, update, openMenu }: {
             {/* A pointer arrow; a bare triangle read as a "play" button. */}
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 9-6.2 1.4 3.6 6.6-2.7 1.4-3.6-6.6L5 19z" /></svg>
           </button>
-          {PENS.map((t) => (
+          {pens.map((t) => (
             <button key={t} type="button" className="tb-icon" aria-pressed={choice === t} onClick={() => setChoice(t)} aria-label={TOOL_STYLE[t].label} title={TOOL_STYLE[t].label}>
               <span className={`nib nib-${t}`} aria-hidden="true" />
             </button>
@@ -567,18 +569,26 @@ function Notes({ study, update, ink, setInk, mode, setMode, ...pen }: {
         // Room to keep writing below the lowest line written, about ten lines' worth.
         style={inkLow ? { minHeight: inkLow + 320 } : undefined}
       >
-        <input
-          className="pad-title"
-          value={study.title}
-          placeholder="Title"
-          readOnly={writing}
-          tabIndex={writing ? -1 : undefined}
-          onChange={(e) => update(study.id, (s) => ({ ...s, title: e.target.value }))}
-          aria-label="Title"
-        />
-        <p className="pad-meta">
-          {study.passage} · {new Date(study.created).toLocaleDateString(undefined, { dateStyle: 'long' })}
-        </p>
+        {/* The title and date; a notebook skin sets them in its DATE/NO. and TITLE box.
+            Either way they are three rules tall, so ink below them never moves. */}
+        <div className="pad-head">
+          <span className="pad-label pad-label-date" aria-hidden="true">Date / No.</span>
+          <span className="pad-label pad-label-title" aria-hidden="true">Title</span>
+          <input
+            className="pad-title"
+            value={study.title}
+            placeholder="Title"
+            readOnly={writing}
+            tabIndex={writing ? -1 : undefined}
+            onChange={(e) => update(study.id, (s) => ({ ...s, title: e.target.value }))}
+            aria-label="Title"
+          />
+          <p className="pad-meta">
+            <span className="pad-no">{study.passage}</span>
+            <span className="pad-sep"> · </span>
+            <span className="pad-date">{new Date(study.created).toLocaleDateString(undefined, { dateStyle: 'long' })}</span>
+          </p>
+        </div>
         <textarea
           ref={page} className="pad-lines" value={body} onChange={(e) => write('page', e.target.value)} aria-label="Notes" rows={18}
           readOnly={writing} tabIndex={writing ? -1 : undefined}

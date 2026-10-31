@@ -54,13 +54,14 @@ test.describe('the look', () => {
       return [255, 255, 255];
     });
 
-  test('it starts in Sepia, even when the device is in dark mode', async ({ browser }, info) => {
+  test('it starts in the Notebook, even when the device is in dark mode', async ({ browser }, info) => {
+    // Darrell's notebook and four-colour pen, chosen by the family (Sepia before).
     const context = await browser.newContext({ ...info.project.use, colorScheme: 'dark' });
     const page = await context.newPage();
     await page.goto('/#/new');
     await page.getByRole('heading', { name: 'The Holy Bible' }).waitFor();
-    // Sepia's page colour, #f6eedc.
-    expect(await canvas(page)).toEqual([246, 238, 220]);
+    // The Notebook's page colour, #f8f8f5.
+    expect(await canvas(page)).toEqual([248, 248, 245]);
     await context.close();
   });
 

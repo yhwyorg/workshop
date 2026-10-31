@@ -10,6 +10,7 @@
  */
 
 import { paperTile, svgTooth } from './paper';
+import type { Tool } from './studies';
 
 export const SKIN_FORMAT = 'workshop-skin/1';
 
@@ -46,8 +47,18 @@ export interface Skin {
     wear: number;
     /** Optional texture laid over the paper: a data: URI of a PNG, JPEG or WebP, at most 200 KB. */
     texture?: string;
+    /** "dotted" rules, as many notebooks print them; "solid" otherwise. */
+    rule: 'solid' | 'dotted';
+    /** A solid rule every this many lines (a notebook's eighth line); 0 for none. */
+    every: number;
+    /** "date-title": a DATE/NO. and TITLE box at the top of the page, as printed notebooks have. */
+    header: 'none' | 'date-title';
   };
-  ink: { text: string; notes: string; accent: string; muted: string };
+  /**
+   * notes is the pen's own colour. red is the second pen (the accent when not given);
+   * black and green, when given, add those pens: a four-colour pen.
+   */
+  ink: { text: string; notes: string; accent: string; muted: string; red: string; black?: string; green?: string };
   slip: { color: string; ink: string };
   fonts: { scripture: FontKey; notes: FontKey; ui: FontKey };
 }
@@ -85,6 +96,19 @@ export function validateSkin(input: unknown): SkinResult {
     if (typeof v === 'string' && v.trim() && v.length <= max) return v.trim();
     errors.push(`${path} must be text of 1-${max} characters`);
     return '';
+  };
+  // The newer settings are optional, so skins made before them still pass.
+  const oneOf = <T extends string>(v: unknown, path: string, allowed: readonly T[], fallback: T): T => {
+    if (v === undefined) return fallback;
+    if (typeof v === 'string' && (allowed as readonly string[]).includes(v)) return v as T;
+    errors.push(`${path} must be one of ${allowed.join(', ')}, not ${JSON.stringify(v)}`);
+    return fallback;
+  };
+  const whole = (v: unknown, path: string, min: number, max: number) => {
+    if (v === undefined) return 0;
+    if (typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max) return v;
+    errors.push(`${path} must be a whole number from ${min} to ${max}, not ${JSON.stringify(v)}`);
+    return 0;
   };
   const font = (v: unknown, path: string): FontKey => {
     if (typeof v === 'string' && v in FONTS) return v as FontKey;
@@ -127,12 +151,18 @@ export function validateSkin(input: unknown): SkinResult {
       grain: num(paper.grain, 'paper.grain', 0, 1),
       wear: num(paper.wear, 'paper.wear', 0, 1),
       ...(texture && { texture }),
+      rule: oneOf(paper.rule, 'paper.rule', ['solid', 'dotted'] as const, 'solid'),
+      every: whole(paper.every, 'paper.every', 0, 12),
+      header: oneOf(paper.header, 'paper.header', ['none', 'date-title'] as const, 'none'),
     },
     ink: {
       text: color(ink.text, 'ink.text'),
       notes: color(ink.notes, 'ink.notes'),
       accent: color(ink.accent, 'ink.accent'),
       muted: color(ink.muted, 'ink.muted'),
+      red: ink.red === undefined ? color(ink.accent, 'ink.accent') : color(ink.red, 'ink.red'),
+      ...(ink.black !== undefined && { black: color(ink.black, 'ink.black') }),
+      ...(ink.green !== undefined && { green: color(ink.green, 'ink.green') }),
     },
     slip: { color: color(slip.color, 'slip.color'), ink: color(slip.ink, 'slip.ink') },
     fonts: { scripture: font(fonts.scripture, 'fonts.scripture'), notes: font(fonts.notes, 'fonts.notes'), ui: font(fonts.ui, 'fonts.ui') },
@@ -152,6 +182,13 @@ export function validateSkin(input: unknown): SkinResult {
     }
     const m = contrast(skin.ink.muted, skin.paper.color);
     if (m < 3) errors.push(`ink.muted on paper.color has contrast ${m.toFixed(2)}:1; at least 3:1 is needed`);
+    // A pen whose ink can hardly be seen on the page is no pen.
+    for (const k of ['red', 'black', 'green'] as const) {
+      const c = skin.ink[k];
+      if (!c) continue;
+      const r = contrast(c, skin.paper.color);
+      if (r < 3) errors.push(`ink.${k} on paper.color has contrast ${r.toFixed(2)}:1; at least 3:1 is needed`);
+    }
   }
   return errors.length ? { ok: false, errors } : { ok: true, skin, warnings };
 }
@@ -175,6 +212,32 @@ function grain(amount: number, seed: number): string {
   if (amount <= 0) return 'none';
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' seed='${seed}'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.28  0 0 0 0 0.18  0 0 0 ${(0.22 * amount).toFixed(3)} 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+/**
+ * The ruled lines as a background. Plain solid rules are the gradient they always were;
+ * dotted rules, or a solid rule every so many lines, are an SVG tile drawn here (never
+ * by the skin): one tile spans the repeat, each line at the bottom of its band, where
+ * writing sits on it.
+ */
+function rules(p: Skin['paper']): string {
+  const color = p.lines === 'none' ? 'transparent' : p.lines;
+  if (p.lines === 'none' || (p.rule === 'solid' && !p.every)) {
+    return `repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 1px), ${color} calc(var(--line) - 1px) var(--line))`;
+  }
+  const n = Math.max(p.every, 1);
+  const lines = Array.from({ length: n }, (_, i) => {
+    const y = (i + 1) * p.spacing - 0.5;
+    const solid = p.rule === 'solid' || (p.every > 0 && (i + 1) % p.every === 0);
+    return `<line x1='0' y1='${y}' x2='8' y2='${y}' stroke='${color}' stroke-width='1'${solid ? '' : " stroke-dasharray='1 3'"}/>`;
+  });
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='8' height='${n * p.spacing}'>${lines.join('')}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+/** The pens a skin offers, in the toolbar's order: a four-colour pen when it names four. */
+export function pensOf(skin: Skin): Tool[] {
+  return ['pen', ...(skin.ink.black ? (['black'] as const) : []), 'red', ...(skin.ink.green ? (['green'] as const) : []), 'highlighter'];
 }
 
 /** The skin as CSS custom properties. Every value was checked by validateSkin. */
@@ -201,10 +264,14 @@ export function skinVariables(skin: Skin): Record<string, string> {
     '--rule': p.lines === 'none' ? 'transparent' : p.lines,
     '--margin': p.margin === 'none' ? 'transparent' : p.margin,
     '--line': `${p.spacing}px`,
+    '--pad-rules': rules(p),
     '--ink': skin.ink.text,
     '--ink-notes': skin.ink.notes,
     '--accent': skin.ink.accent,
     '--muted': skin.ink.muted,
+    '--pen-red': skin.ink.red,
+    '--pen-black': skin.ink.black ?? skin.ink.text,
+    '--pen-green': skin.ink.green ?? skin.ink.notes,
     '--slip': skin.slip.color,
     '--slip-ink': skin.slip.ink,
     '--font-scripture': FONTS[skin.fonts.scripture],
@@ -223,6 +290,8 @@ export function applySkin(skin: Skin) {
   const root = document.documentElement;
   for (const [k, v] of Object.entries(skinStyle(skin))) root.style.setProperty(k, v);
   root.style.colorScheme = skin.dark ? 'dark' : 'light';
+  // Not a variable: the header box changes which elements are drawn how.
+  root.dataset.padHeader = skin.paper.header;
 }
 
 /** Instructions to paste into an AI so it produces a valid skin. Shown in the Skins panel. */
@@ -237,8 +306,11 @@ Reply with JSON only, in exactly this format:
   "dark": false,
   "desk":  { "color": "#hex", "grain": 0.0-1.0 },
   "paper": { "color": "#hex", "lines": "#hex or none", "margin": "#hex or none",
-             "spacing": 22-44, "grain": 0.0-1.0, "wear": 0.0-1.0 },
-  "ink":   { "text": "#hex", "notes": "#hex", "accent": "#hex", "muted": "#hex" },
+             "spacing": 22-44, "grain": 0.0-1.0, "wear": 0.0-1.0,
+             "rule": "solid | dotted (optional)", "every": 0-12 (optional: a solid rule every N lines),
+             "header": "none | date-title (optional: a DATE/NO. and TITLE box)" },
+  "ink":   { "text": "#hex", "notes": "#hex", "accent": "#hex", "muted": "#hex",
+             "red": "#hex (optional)", "black": "#hex (optional)", "green": "#hex (optional)" },
   "slip":  { "color": "#hex", "ink": "#hex" },
   "fonts": { "scripture": "${Object.keys(FONTS).join(' | ')}",
              "notes": "(same choices)", "ui": "(same choices)" }
@@ -247,7 +319,8 @@ Reply with JSON only, in exactly this format:
 Rules: colors are hex only. ink.text and ink.notes need a contrast of at least 4.5:1 against
 paper.color, as does slip.ink against slip.color; ink.muted needs 3:1. "desk" is the surface
 everything sits on; "paper" is the legal pad; "slip" is the Bible's page beside it. "wear" adds
-age and coffee rings.
+age and coffee rings. ink.notes is the pen; ink.red is a second pen; give ink.black and
+ink.green too for a four-colour pen. Pen colours need 3:1 against paper.color.
 No CSS, no web addresses, no other keys.
 
 The look I want: `;

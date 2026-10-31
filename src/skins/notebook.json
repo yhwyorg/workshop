@@ -1,0 +1,18 @@
+{
+  "format": "workshop-skin/1",
+  "name": "Notebook",
+  "author": "Workshop",
+  "description": "A white spiral notebook with dotted rules and a date and title box, written in with a four-colour ballpoint: blue, black, red and green.",
+  "dark": false,
+  "desk": { "color": "#c8955c", "grain": 0.35 },
+  "paper": {
+    "color": "#fcfcfa", "lines": "#b3b7ba", "margin": "none", "spacing": 32, "grain": 0.1, "wear": 0,
+    "rule": "dotted", "every": 8, "header": "date-title"
+  },
+  "ink": {
+    "text": "#1f2226", "notes": "#1d3f9b", "accent": "#b3222b", "muted": "#70777d",
+    "red": "#c0272d", "black": "#1b1c1e", "green": "#1d7a3c"
+  },
+  "slip": { "color": "#f8f8f5", "ink": "#1f2226" },
+  "fonts": { "scripture": "book", "notes": "clean", "ui": "clean" }
+}

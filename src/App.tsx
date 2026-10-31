@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Lengths } from './lib/refs';
 import { href, useRoute } from './lib/route';
-import { applySkin, validateSkin, type Skin } from './lib/skin';
+import { applySkin, pensOf, validateSkin, type Skin } from './lib/skin';
 import { exportStudy, importStudy, load, newStudy, save, STORE_KEY, type KV, type Loaded, type Store, type Study } from './lib/studies';
 import { useMediaQuery } from './lib/media';
 import { loadLengths } from './lib/text';
@@ -209,7 +209,7 @@ export default function App() {
         ) : route.view === 'about' ? (
           <About />
         ) : !store ? null : route.view === 'study' ? (
-          <StudyView study={current} lengths={lengths} update={update} openMenu={() => setMenu(true)} />
+          <StudyView study={current} lengths={lengths} update={update} openMenu={() => setMenu(true)} pens={pensOf(skin)} />
         ) : route.view === 'studies' ? (
           <Studies studies={studies} />
         ) : route.view === 'new' ? (
