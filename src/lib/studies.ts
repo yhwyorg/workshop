@@ -41,6 +41,11 @@ export interface Ink {
    */
   width: number;
   strokes: Stroke[];
+  /**
+   * How the Bible's text was set when this ink was written on it (see layout.ts); absent
+   * for ink from before chapters were set in paragraphs, which keeps the old setting.
+   */
+  layout?: number;
 }
 
 export interface Study {
@@ -120,6 +125,8 @@ function checkStudy(p: unknown, where: string): asserts p is Study {
   for (const [surface, ink] of Object.entries(x.ink ?? {})) {
     const ok =
       typeof ink?.width === 'number' &&
+      // A setting this version doesn't know would put the ink over the wrong words.
+      (ink.layout === undefined || ink.layout === 2) &&
       Array.isArray(ink.strokes) &&
       ink.strokes.every(
         (st) => TOOLS.includes(st?.tool) && Array.isArray(st.pts) && st.pts.length % 3 === 0 && st.pts.every((n) => typeof n === 'number' && Number.isFinite(n)),

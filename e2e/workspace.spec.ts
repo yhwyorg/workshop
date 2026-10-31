@@ -65,6 +65,10 @@ test.describe('the look', () => {
   });
 
   test('"Automatic" follows the device: light by day, dark at night', async ({ browser }, info) => {
+    // Two whole browser contexts, light and dark, each opening the app twice: under a
+    // full local run (4 workers) it went past 30s on the phone with no step hung
+    // (clicks took 2.5-3.5s). Given the time its work needs, not more for everything.
+    test.slow();
     const luminance = async (scheme: 'light' | 'dark') => {
       const context = await browser.newContext({ ...info.project.use, colorScheme: scheme });
       const page = await context.newPage();

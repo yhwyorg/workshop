@@ -98,6 +98,24 @@ Study Notes (CC BY-SA 4.0), whose credit is shown under the notes and on About.
   `curl -o e2e/recorded/BSB_JHN_15.json https://bible.helloao.org/api/BSB/JHN/15.json`.
 - Opening a reference tells that site which chapter is being read. Nothing written is sent.
 
+### How the text is set (paragraphs, poetry, the words of Jesus)
+
+`public/text/en/layout/<BOOK>.json` (853 KB) records where the WEB's paragraphs, poetry
+lines, psalm titles and headings fall, and which words are Jesus', as word positions
+in the VPL verses above. Built from eBible's USFM edition:
+
+```sh
+curl -L -o engwebp_usfm.zip https://eBible.org/Scriptures/engwebp_usfm.zip
+unzip engwebp_usfm.zip -d engwebp_usfm
+npm run layout -- engwebp_usfm
+```
+
+The build compares the USFM's words with the VPL's, verse by verse, and stops on any
+difference: a position counted against different words would put a mark on the wrong
+one. A unit test checks that every word of all 66 books is set exactly once. Ink
+records the setting it was written on; ink from before chapters were set this way
+keeps the old continuous setting (and the page says so).
+
 ### Cross-references (tap a verse number)
 
 OpenBible.info's reader-voted cross-references (CC BY), built into `public/xref/` (one
