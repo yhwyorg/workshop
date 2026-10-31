@@ -47,7 +47,9 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraw
 
   useEffect(() => {
     const el = box.current!;
-    const ro = new ResizeObserver(() => setWidth(Math.round(el.getBoundingClientRect().width)));
+    // The laid-out width, not the width on screen: inside a Fit the two differ by the
+    // scale, and only a change of layout moves the words under the ink.
+    const ro = new ResizeObserver(() => setWidth(el.offsetWidth));
     ro.observe(el);
     // Non-passive, so the stylus's default (scroll, focus, Scribble) can be cancelled;
     // and a writing finger's too, or it would also scroll and tap what is under it.
@@ -63,9 +65,14 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraw
     };
   }, []);
 
+  // In the surface's own pixels. Inside a Fit it is drawn scaled, so screen distances
+  // are divided back by the scale; otherwise ink written on a narrowed Bible would land
+  // to the right of and below the pen, and drift further the further it was written.
   const at = (e: PointerEvent | React.PointerEvent) => {
-    const r = box.current!.getBoundingClientRect();
-    return [e.clientX - r.left, e.clientY - r.top] as const;
+    const el = box.current!;
+    const r = el.getBoundingClientRect();
+    const scale = el.offsetWidth ? r.width / el.offsetWidth : 1;
+    return [(e.clientX - r.left) / scale, (e.clientY - r.top) / scale] as const;
   };
   const erase = (strokes: Stroke[], x: number, y: number) => strokes.filter((s) => !touches(s, x, y, 7));
 

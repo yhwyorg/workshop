@@ -1,14 +1,16 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { BY_CODE } from '../lib/books';
 import { inkBottom, TOOL_STYLE } from '../lib/ink';
 import { useMediaQuery } from '../lib/media';
-import { keepReference, savedReference, type Reference } from '../lib/reference';
+import { keepReferences, MAX_REFERENCES, savedReferences, type Reference } from '../lib/reference';
 import { chapterOf, key, parsePassage, verseOf, type Lengths, type Passage, type VerseKey } from '../lib/refs';
 import { href } from '../lib/route';
 import { nextMark, SHEETS, type Ink, type Mark, type Sheet, type Study, type Tool } from '../lib/studies';
 import { loadBook } from '../lib/text';
+import Fit from './Fit';
 import InkSurface from './Ink';
 import { ReferencePicker, ReferenceText } from './Reference';
+import { useScrollLock } from './scrollLock';
 
 /** Headings for the first version's sheets, shown only where something was written on them. */
 const OLD_SHEETS: Partial<Record<Sheet, string>> = {
@@ -52,15 +54,25 @@ const pref = {
 const NOTES_MODE_KEY = 'workshop:notes-mode';
 /** Set once a Pencil has been used here; from then on fingers scroll, not write. */
 const PENCIL_KEY = 'workshop:pencil';
+/** "0" when the reader has unlocked the Bible and references from each other. */
+const LOCK_KEY = 'workshop:scroll-lock';
+
+/**
+ * The widths the Bible's and the notes' text are laid out at. Ink is stored against
+ * these; a narrower column shows them scaled down (see Fit), never rewrapped.
+ */
+const BIBLE_W = 560;
+const NOTES_W = 460;
 
 /**
  * A study: the Bible and the notes, each in its own pane that scrolls on its own, and
  * a toolbar floating over both. The screen itself never scrolls. Side by side when
  * there is room; the notes under the Bible on an upright iPad; a tap apart on a phone.
  *
- * A reference (another translation, a commentary) gets a pane of its own on a wide
- * screen. Elsewhere it shares the notes' place, a tap away from them, so the Bible's
- * pane keeps its size and the ink written on it stays where it was written.
+ * References (other translations, commentaries) open in columns beside the Bible, and
+ * the notes stay where they are: the reader asked to be able to take notes at all
+ * times. The Bible and the notes shrink as a whole to make room, so the ink on them
+ * stays on its words. On a phone every pane is a tab.
  */
 export default function StudyView({ study, lengths, update, openMenu }: {
   study: Study | undefined;
@@ -80,19 +92,22 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   const [book, setBook] = useState<Book>({ state: 'loading' });
   // On a laptop the mouse starts as a pointer; on an iPad the Pencil starts as a pen.
   const [choice, setChoice] = useState<Choice>(() => (fine() ? 'read' : 'pen'));
-  // Which pane is in front where they can't all be: a phone shows one, a laptop or
-  // iPad shows the Bible and one of the other two.
-  const [pane, setPane] = useState<'bible' | 'notes' | 'ref'>('bible');
-  const [reference, setReference] = useState<Reference | null>(savedReference);
+  // Which pane a phone shows: "bible", "notes" or a reference's id.
+  const [pane, setPane] = useState('bible');
+  const [references, setReferences] = useState<Reference[]>(savedReferences);
+  const [locked, setLocked] = useState(() => pref.get(LOCK_KEY) !== '0');
+  // How far the Bible is shrunk to make room, so references can match its size.
+  const [bibleScale, setBibleScale] = useState(1);
   const [jump, setJump] = useState(false);
   const [comparing, setComparing] = useState(false);
   const [notesMode, setNotesMode] = useState<'write' | 'type'>(() => (pref.get(NOTES_MODE_KEY) === 'type' ? 'type' : 'write'));
   const [pencil, setPencil] = useState(() => pref.get(PENCIL_KEY) === '1');
   const phone = useMediaQuery('(max-width: 599px)');
-  const wide = useMediaQuery('(min-width: 1600px)');
   // What each change of ink replaced, newest last, so Undo can put it back.
   const [history, setHistory] = useState<{ surface: string; before: Ink | undefined }[]>([]);
   const biblePane = useRef<HTMLElement>(null);
+  const workspace = useRef<HTMLDivElement>(null);
+  useScrollLock(workspace, locked && references.length > 0);
 
   useEffect(() => {
     if (study) document.title = `${study.title || study.passage} · Sermon Workshop`;
@@ -164,18 +179,29 @@ export default function StudyView({ study, lengths, update, openMenu }: {
     setChapter(c);
     setJump(false);
   };
-  const compare = (r: Reference | null) => {
-    setReference(r);
-    keepReference(r);
-    setPane(r ? 'ref' : 'bible');
+  const setRefs = (next: Reference[]) => {
+    setReferences(next);
+    keepReferences(next);
+  };
+  const close = (r: Reference) => {
+    setRefs(references.filter((x) => x.id !== r.id));
+    if (pane === r.id) setPane('bible');
+  };
+  // Choosing an open reference closes it; choosing another opens it beside the rest.
+  const compare = (r: Reference) => {
+    if (references.some((x) => x.id === r.id)) close(r);
+    else if (references.length < MAX_REFERENCES) {
+      setRefs([...references, r]);
+      setPane(r.id);
+    }
     setComparing(false);
   };
-  // The tabs a reader needs to reach every pane: all three on a phone; on a laptop or
-  // iPad, only the notes and the reference that share a place; none on a wide screen.
-  const tabs = (phone ? (['bible', 'ref', 'notes'] as const) : reference && !wide ? (['notes', 'ref'] as const) : [])
-    .filter((t) => t !== 'ref' || reference);
-  const label = { bible: 'Bible', notes: 'Notes', ref: reference?.short ?? '' };
-  const front = !phone && pane === 'bible' ? 'notes' : pane;
+  const lock = () => {
+    setLocked(!locked);
+    pref.set(LOCK_KEY, locked ? '0' : '1');
+  };
+  const front = pane === 'bible' || pane === 'notes' || references.some((r) => r.id === pane) ? pane : 'bible';
+  const tabs = [{ id: 'bible', label: 'Bible' }, ...references.map((r) => ({ id: r.id, label: r.short })), { id: 'notes', label: 'Notes' }];
   // The Pencil always writes with the chosen tool ("read" leaves it on the pen). A mouse
   // writes only on a laptop with a pen chosen: on an iPad the default tool is the pen,
   // and a trackpad (Magic Keyboard) would otherwise draw instead of tapping words.
@@ -197,29 +223,37 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   };
 
   return (
-    <div className={`workspace show-${front}${reference ? ' has-ref' : ''}`}>
-      {tabs.length > 0 && (
+    <div ref={workspace} className={`workspace${references.length ? ' has-ref' : ''}`} style={{ '--bible-scale': bibleScale } as CSSProperties}>
+      {phone && (
         <div className="pane-switch">
           <div className="pane-tabs" role="tablist" aria-label="Show">
             {tabs.map((t) => (
-              <button key={t} type="button" role="tab" aria-selected={front === t} onClick={() => setPane(t)}>{label[t]}</button>
+              <button key={t.id} type="button" role="tab" aria-selected={front === t.id} onClick={() => setPane(t.id)}>{t.label}</button>
             ))}
           </div>
         </div>
       )}
 
-      <section ref={biblePane} className="pane bible-pane" role="region" aria-label="Bible">
-        <BibleText key={ch} passage={passage} chapter={ch} name={name} book={book} marks={study.marks} onMark={mark} ink={study.ink?.[`bible:${ch}`]} setInk={setInk(`bible:${ch}`)} {...pen} />
+      <section ref={biblePane} className={`pane bible-pane${front === 'bible' ? ' front' : ''}`} role="region" aria-label="Bible">
+        <Fit width={BIBLE_W} gutter={20} on={!phone} onScale={setBibleScale}>
+          <BibleText key={ch} passage={passage} chapter={ch} name={name} book={book} marks={study.marks} onMark={mark} ink={study.ink?.[`bible:${ch}`]} setInk={setInk(`bible:${ch}`)} {...pen} />
+        </Fit>
       </section>
 
-      {reference && (
-        <section className="pane ref-pane" role="region" aria-label={reference.name}>
-          <ReferenceText reference={reference} book={passage.book} bookName={name} chapter={ch} close={() => compare(null)} />
-        </section>
+      {references.length > 0 && (
+        <div className="refs">
+          {references.map((r) => (
+            <section key={r.id} className={`pane ref-pane${front === r.id ? ' front' : ''}`} role="region" aria-label={r.name}>
+              <ReferenceText reference={r} book={passage.book} bookName={name} chapter={ch} close={() => close(r)} />
+            </section>
+          ))}
+        </div>
       )}
 
-      <section className="pane notes-pane" role="region" aria-label="Your notes">
-        <Notes study={study} update={update} ink={study.ink?.pad} setInk={setInk('pad')} mode={notesMode} setMode={chooseNotesMode} {...notesPen} />
+      <section className={`pane notes-pane${front === 'notes' ? ' front' : ''}`} role="region" aria-label="Your notes">
+        <Fit width={NOTES_W} gutter={16} on={!phone}>
+          <Notes study={study} update={update} ink={study.ink?.pad} setInk={setInk('pad')} mode={notesMode} setMode={chooseNotesMode} {...notesPen} />
+        </Fit>
       </section>
 
       {/* Print only, for "Print with lines to write on". */}
@@ -227,7 +261,7 @@ export default function StudyView({ study, lengths, update, openMenu }: {
         {Array.from({ length: 36 }, (_, i) => <span key={i} />)}
       </div>
 
-      {comparing && <ReferencePicker current={reference} choose={compare} />}
+      {comparing && <ReferencePicker open={references} choose={compare} />}
 
       {jump && (
         <div className="chapter-picker" role="dialog" aria-label={`Chapters of ${name}`}>
@@ -256,6 +290,21 @@ export default function StudyView({ study, lengths, update, openMenu }: {
           {/* Two columns side by side. */}
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="7" height="14" rx="1.5" /><rect x="13.5" y="5" width="7" height="14" rx="1.5" /></svg>
         </button>
+        {references.length > 0 && !phone && (
+          <button
+            type="button" className="tb-icon tb-lock" onClick={lock} aria-pressed={locked} aria-label="Scroll together"
+            title={locked ? 'Scrolling together: the Bible and references keep to the same verse' : 'Scrolling separately'}
+          >
+            {/* A chain: links joined when locked, broken when not. */}
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              {locked ? (
+                <path d="M9.5 14.5l5-5M8 11l-2 2a3.5 3.5 0 0 0 5 5l2-2M16 13l2-2a3.5 3.5 0 0 0-5-5l-2 2" />
+              ) : (
+                <path d="M8 11l-2 2a3.5 3.5 0 0 0 5 5l1-1M16 13l2-2a3.5 3.5 0 0 0-5-5l-1 1M4 4l3 3M20 20l-3-3" />
+              )}
+            </svg>
+          </button>
+        )}
         <span className="tb-sep tb-pens-sep" aria-hidden="true" />
         <span className="tb-pens" role="group" aria-label="Pens">
           <button type="button" className="tb-icon tb-read" aria-pressed={choice === 'read'} onClick={() => setChoice('read')} aria-label="Read" title="Read: click words to mark them">
@@ -313,7 +362,7 @@ function BibleText({ passage, chapter, name, book, marks, onMark, ink, setInk, t
               const k = key(chapter, vi + 1);
               let i = -1;
               return (
-                <span key={k} className={inStudy(k) ? 'v in-study' : 'v'}>
+                <span key={k} className={inStudy(k) ? 'v in-study' : 'v'} data-verse={vi + 1}>
                   {vi > 0 && <sup className="vn">{vi + 1}</sup>}
                   {text.split(/(\s+)/).map((tok, ti) => {
                     if (/^\s*$/.test(tok)) return <Fragment key={ti}>{tok}</Fragment>;
