@@ -15,7 +15,7 @@ test.describe('the workspace', () => {
   test('reading to the end of the chapter keeps the notes in view', async ({ page }, info) => {
     test.skip(info.project.name === 'phone', 'on a phone the notes are one tap away instead');
     await beginStudy(page, 'John', 15);
-    const bible = page.getByRole('region', { name: 'Bible' });
+    const bible = page.getByRole('region', { name: 'Bible', exact: true });
     const notes = page.getByLabel('Notes', { exact: true });
     await bible.evaluate((el) => el.scrollTo(0, el.scrollHeight));
     await expect(page.locator('.scripture .v').last()).toBeInViewport();

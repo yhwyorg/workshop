@@ -56,7 +56,7 @@ test.describe('writing on the notes', () => {
     await beginStudy(page, 'John', 15);
     await typeNotes(page, Array.from({ length: 80 }, (_, i) => `Line ${i + 1}`).join('\n'));
     await page.getByRole('button', { name: 'Write', exact: true }).click();
-    const pane = page.getByRole('region', { name: 'Your notes' });
+    const pane = page.getByRole('region', { name: 'Your notes', exact: true });
     expect(await pane.evaluate((el) => el.scrollTop)).toBe(0);
     await twoFingerDrag(page, '.pad-surface', [80, 300], -200);
     await expect.poll(() => pane.evaluate((el) => el.scrollTop)).toBeGreaterThan(150);
