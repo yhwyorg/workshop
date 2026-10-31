@@ -29,10 +29,10 @@ export async function beginStudy(page: Page, book: string, chapter: number) {
 }
 
 /**
- * Draws with a stylus. Synthetic pointer events with pointerType "pen" and real
+ * Draws with a stylus, a finger or a mouse. Synthetic pointer events with real
  * pressure: the same path an Apple Pencil takes through the app.
  */
-export async function draw(page: Page, selector: string, kind: 'pen' | 'touch', from: [number, number], to: [number, number]) {
+export async function draw(page: Page, selector: string, kind: 'pen' | 'touch' | 'mouse', from: [number, number], to: [number, number]) {
   await page.locator(selector).evaluate(
     (el, { kind, from, to }) => {
       const r = el.getBoundingClientRect();
@@ -61,6 +61,42 @@ export async function draw(page: Page, selector: string, kind: 'pen' | 'touch', 
 export async function show(page: Page, pane: string) {
   const tab = page.getByRole('tab', { name: pane, exact: true });
   if (await tab.isVisible()) await tab.click();
+}
+
+/**
+ * Two fingers dragged up the surface together, as a reader scrolls on an iPad. Two
+ * pointers, both "touch", moving in step.
+ */
+export async function twoFingerDrag(page: Page, selector: string, at: [number, number], dy: number) {
+  await page.locator(selector).evaluate(
+    (el, { at, dy }) => {
+      const r = el.getBoundingClientRect();
+      const fire = (type: string, id: number, x: number, y: number) =>
+        el.dispatchEvent(
+          new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: id, pointerType: 'touch', isPrimary: id === 21, clientX: r.left + x, clientY: r.top + y, buttons: 1 }),
+        );
+      fire('pointerdown', 21, at[0], at[1]);
+      fire('pointerdown', 22, at[0] + 60, at[1]);
+      for (let i = 1; i <= 10; i++) {
+        fire('pointermove', 21, at[0], at[1] + (dy * i) / 10);
+        fire('pointermove', 22, at[0] + 60, at[1] + (dy * i) / 10);
+      }
+      fire('pointerup', 21, at[0], at[1] + dy);
+      fire('pointerup', 22, at[0] + 60, at[1] + dy);
+    },
+    { at, dy },
+  );
+}
+
+/**
+ * Types into the notes. The notes start out for handwriting, where the page can't be
+ * typed on (or the Pencil would be turned into text); Type switches to the keyboard.
+ */
+export async function typeNotes(page: Page, text: string, label = 'Notes') {
+  await show(page, 'Notes');
+  const type = page.getByRole('button', { name: 'Type', exact: true });
+  if ((await type.getAttribute('aria-pressed')) !== 'true') await type.click();
+  await page.getByLabel(label, { exact: true }).fill(text);
 }
 
 /** The saved studies, read straight from storage: proves a change was kept, not just drawn. */

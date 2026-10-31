@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { TOOL_STYLE, compact, strokePath, touches } from '../lib/ink';
 import type { Ink, Stroke, Tool } from '../lib/studies';
 
@@ -9,18 +9,24 @@ export type PenTool = Tool | 'eraser';
  * ink drawn over it.
  *
  * Who draws:
- *   - Apple Pencil (or any stylus) always draws. Fingers never do: they scroll, tap
- *     words and type, so a palm resting on the glass leaves no marks.
- *   - A mouse draws only while the pen is switched on, so it can still click words.
+ *   - Apple Pencil (or any stylus) always draws.
+ *   - A finger draws only where `fingerDraws` says (the notes, until a Pencil has been
+ *     used); elsewhere it scrolls and taps words. Where a finger draws, two fingers
+ *     scroll instead, since the browser's own one-finger scroll is switched off there.
+ *   - A mouse draws only where `mouseDraws` says, so elsewhere it can still click words.
  * On iPad the Pencil arrives as a touch; its touchstart is cancelled so it does not
  * also scroll the page, focus the notes (raising the keyboard), or start Scribble.
  */
-export default function InkSurface({ ink, onChange, tool, mouseDraws, className, children }: {
+export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraws = false, onPen, className, style, children }: {
   ink: Ink | undefined;
   onChange: (ink: Ink) => void;
   tool: PenTool;
   mouseDraws: boolean;
+  fingerDraws?: boolean;
+  /** Told when a Pencil touches, so fingers can stop writing (a palm on the glass). */
+  onPen?: () => void;
   className?: string;
+  style?: CSSProperties;
   children: ReactNode;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -33,14 +39,20 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, className,
   // the word was marked anyway (seen in the browser tests run in parallel).
   const penGesture = useRef(false);
   const current = useRef<{ stroke: Stroke; real: boolean; erased: boolean; strokes: Stroke[] } | null>(null);
+  // Fingers on the glass, and where each last was, for two-finger scrolling.
+  const fingers = useRef(new Map<number, number>());
+  const panning = useRef(false);
+  const fingerWrites = useRef(fingerDraws);
+  fingerWrites.current = fingerDraws;
 
   useEffect(() => {
     const el = box.current!;
     const ro = new ResizeObserver(() => setWidth(Math.round(el.getBoundingClientRect().width)));
     ro.observe(el);
-    // Non-passive, so the stylus's default (scroll, focus, Scribble) can be cancelled.
+    // Non-passive, so the stylus's default (scroll, focus, Scribble) can be cancelled;
+    // and a writing finger's too, or it would also scroll and tap what is under it.
     const stylus = (e: TouchEvent) => {
-      if ([...e.touches].some((t) => (t as Touch & { touchType?: string }).touchType === 'stylus')) e.preventDefault();
+      if (fingerWrites.current || [...e.touches].some((t) => (t as Touch & { touchType?: string }).touchType === 'stylus')) e.preventDefault();
     };
     el.addEventListener('touchstart', stylus, { passive: false });
     el.addEventListener('touchmove', stylus, { passive: false });
@@ -60,7 +72,18 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, className,
   const down = (e: React.PointerEvent) => {
     const pen = e.pointerType === 'pen';
     penGesture.current = false;
-    if (!pen && !(e.pointerType === 'mouse' && mouseDraws && e.button === 0)) return;
+    if (pen) onPen?.();
+    if (e.pointerType === 'touch' && fingerDraws) {
+      fingers.current.set(e.pointerId, e.clientY);
+      if (fingers.current.size > 1) {
+        // A second finger: this is a scroll, and what the first finger began is not a
+        // stroke. It is dropped, not saved.
+        current.current = null;
+        setLive(null);
+        panning.current = true;
+        return;
+      }
+    } else if (!pen && !(e.pointerType === 'mouse' && mouseDraws && e.button === 0)) return;
     penGesture.current = true;
     e.preventDefault();
     e.stopPropagation();
@@ -83,6 +106,14 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, className,
   };
 
   const move = (e: React.PointerEvent) => {
+    if (panning.current && fingers.current.has(e.pointerId)) {
+      // Each finger moves the page by half its own travel: two fingers, one scroll.
+      const dy = e.clientY - fingers.current.get(e.pointerId)!;
+      fingers.current.set(e.pointerId, e.clientY);
+      const pane = box.current!.closest('.pane');
+      if (pane) pane.scrollTop -= dy / fingers.current.size;
+      return;
+    }
     const c = current.current;
     if (!c) return;
     // Coalesced events carry every sample since the last frame: without them a quick
@@ -105,7 +136,12 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, className,
     } else setLive({ stroke: { ...c.stroke, pts: [...c.stroke.pts] }, real: c.real });
   };
 
-  const up = () => {
+  const up = (e: React.PointerEvent) => {
+    fingers.current.delete(e.pointerId);
+    if (panning.current) {
+      if (!fingers.current.size) panning.current = false;
+      return;
+    }
     const c = current.current;
     if (!c) return;
     current.current = null;
@@ -118,7 +154,8 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, className,
   return (
     <div
       ref={box}
-      className={`ink-surface${className ? ` ${className}` : ''}${mouseDraws ? ' mouse-pen' : ''}`}
+      className={`ink-surface${className ? ` ${className}` : ''}${mouseDraws ? ' mouse-pen' : ''}${fingerDraws ? ' finger-pen' : ''}`}
+      style={style}
       onPointerDown={down}
       onPointerMove={move}
       onPointerUp={up}
