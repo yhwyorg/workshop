@@ -1,270 +1,212 @@
 /*
- * A quiet desk: an open Bible and a legal pad, and nothing else on screen.
+ * The workshop: the Bible and a legal pad, and nothing else.
  *
- * Every color, font and texture comes from the active paper style as a custom
- * property (src/lib/skin.ts); the values here are only fallbacks for the instant
- * before one is applied.
+ * Every color and font comes from the active paper style as a custom property
+ * (src/lib/skin.ts): "slip" is the Bible's page and the canvas, "paper" the notes,
+ * "desk" the toolbar's tint. The values here are fallbacks for the first instant.
  */
 :root {
-  --desk: #6b4f36;
+  --desk: #2b2924;
   --desk-ink: #f5efe2;
-  --desk-grain: none;
-  --paper: #f8eb94;
+  --paper: #fcf4d4;
   --paper-fibres: none;
   --paper-tooth: none;
   --paper-wear: none;
   --paper-texture: none;
-  --rule: #8fb4d4;
-  --margin: #d4574f;
+  --rule: #cfdcea;
+  --margin: #efb9ae;
   --line: 32px;
-  --ink: #1f2a44;
-  --ink-notes: #1d3a8f;
-  --accent: #a8261d;
-  --muted: #5c5233;
-  --slip: #fffdf3;
-  --slip-ink: #1f2a44;
-  --font-scripture: Georgia, serif;
-  --font-notes: cursive;
-  --font-ui: system-ui, sans-serif;
-  /* The legal pad's double red margin, and where writing starts after it. */
-  --margin-x: 64px;
-  --text-x: 80px;
-  --shadow: 0 1px 1px rgba(0, 0, 0, 0.18), 0 14px 32px rgba(0, 0, 0, 0.34);
+  --ink: #26231d;
+  --ink-notes: #1e3a8a;
+  --accent: #b42318;
+  --muted: #6b6457;
+  --slip: #fbf9f4;
+  --slip-ink: #22201b;
+  --font-scripture: 'Literata Variable', Georgia, serif;
+  --font-notes: system-ui, sans-serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Glass for things that float over the pages: the toolbar, menus, pickers. */
+  --glass: color-mix(in srgb, var(--slip) 74%, transparent);
+  --hairline: color-mix(in srgb, var(--slip-ink) 12%, transparent);
+  --float-shadow: 0 10px 30px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.1);
   /*
-   * Both pages keep one width whether the iPad is upright or sideways, as paper does.
-   * If they resized, the text would reflow and ink written in one orientation would
-   * sit on the wrong words in the other. Two pages and the gap fit an 11" iPad sideways.
+   * Text columns keep one width whether an iPad is upright or sideways, so text does
+   * not reflow when it turns and ink stays on the words it was written beside.
    */
-  --page-w: 548px;
+  --bible-w: 560px;
+  --notes-w: 460px;
+  --notes-pane-w: 520px;
 }
 
 * { box-sizing: border-box; }
 
-/*
- * The desk. Its light falls off toward the edges through a fixed overlay rather than
- * background-attachment: fixed, which iPad Safari does not support.
- */
-html {
-  min-height: 100%;
-  background-color: var(--desk);
-  background-image:
-    var(--desk-grain),
-    repeating-linear-gradient(92deg, rgba(0, 0, 0, 0.05) 0 2px, transparent 2px 9px, rgba(255, 255, 255, 0.03) 9px 11px, transparent 11px 23px);
-}
+html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
+  /* A clean canvas: fibres and mottling read as an old page rather than a calm one. */
+  background-color: var(--slip);
+  background-image: var(--paper-texture);
   color: var(--slip-ink);
   font-family: var(--font-ui);
-  -webkit-text-size-adjust: 100%;
-}
-body::before {
-  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(ellipse at 50% 35%, transparent 45%, rgba(0, 0, 0, 0.32) 100%);
+  -webkit-font-smoothing: antialiased;
 }
 
 a { color: var(--accent); }
 button, input, textarea, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
-:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .quiet { color: var(--muted); }
 .small { font-size: 0.88rem; }
 .error { color: var(--accent); font-weight: 600; }
 .ok { color: var(--ink-notes); font-weight: 600; }
 .alert {
-  margin: 12px auto; max-width: 760px; padding: 10px 14px; border-radius: 6px;
-  background: #fbecea; color: #8a1f17; border: 1px solid #e6b8b2;
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 40; max-width: min(640px, 92vw);
+  margin: 0; padding: 10px 14px; border-radius: 12px; background: #fbecea; color: #8a1f17; box-shadow: var(--float-shadow);
 }
 
-/* Plain buttons, paper-coloured, large enough for a finger. */
+/* ---------- Pages other than a study: one quiet column ---------- */
+
+main { padding: 76px 20px 64px; }
+.page-paper, .notice { max-width: 680px; margin: 0 auto 32px; line-height: 1.6; }
+.page-paper h1 { font-family: var(--font-scripture); font-weight: 500; font-size: 2rem; letter-spacing: -0.01em; margin: 0 0 8px; }
+.page-paper h2 { font-family: var(--font-scripture); font-weight: 500; font-size: 1.3rem; margin: 28px 0 6px; }
+
 .button, .page-paper button, .typed button {
-  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px;
-  border: 1px solid color-mix(in srgb, var(--slip-ink) 22%, transparent); border-radius: 8px;
-  background: color-mix(in srgb, var(--slip) 70%, #fff); color: var(--slip-ink); text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 18px;
+  border: 1px solid var(--hairline); border-radius: 12px; background: color-mix(in srgb, var(--slip-ink) 4%, var(--slip));
+  color: var(--slip-ink); text-decoration: none; font-weight: 500;
 }
-.button:hover, .page-paper button:hover { border-color: var(--accent); }
+.button:hover, .page-paper button:hover { background: color-mix(in srgb, var(--slip-ink) 8%, var(--slip)); }
 button.danger { color: var(--accent); }
-button:disabled { opacity: 0.45; cursor: default; }
+button:disabled { opacity: 0.35; cursor: default; }
 
-main { padding: 72px 20px 120px; }
-
-/* ---------- Paper ---------- */
-
-/* The paper surface itself: fibres, mottling, the lit tooth. Wear (age, rings) belongs
-   to the well-used legal pad only; on the Bible's pages it read as smudges. */
-.page-paper, .bible-page, .menu { background-image: var(--paper-texture), var(--paper-fibres), var(--paper-tooth); }
-.pad-sheet, .skin-sheet { background-image: var(--paper-wear), var(--paper-texture), var(--paper-fibres), var(--paper-tooth); }
-/* A page of the Bible, and every other page: the cream "slip" paper. */
-.page-paper, .bible-page, .menu { background-color: var(--slip); color: var(--slip-ink); }
-.page-paper {
-  max-width: 760px; margin: 0 auto 28px; padding: 36px 44px; border-radius: 2px; box-shadow: var(--shadow);
-  line-height: 1.6;
-}
-.page-paper h1 {
-  font-family: var(--font-scripture); font-weight: 400; font-size: 1.9rem; margin: 0 0 6px; letter-spacing: 0.01em;
-}
-.page-paper h2 { font-family: var(--font-scripture); font-weight: 400; font-size: 1.3rem; margin: 26px 0 6px; }
-.notice { max-width: 620px; }
-
-/* ---------- The corner menu ---------- */
-
+/* The menu button on pages other than a study (a study's toolbar has its own). */
 .menu-button {
-  position: fixed; top: 14px; left: 14px; z-index: 20; width: 46px; height: 46px; border-radius: 50%;
-  border: 0; background: color-mix(in srgb, var(--desk) 70%, #000 30%); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  position: fixed; top: 14px; left: 14px; z-index: 20; width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--hairline); background: var(--glass); box-shadow: var(--float-shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
 }
-/* Three short strokes, drawn rather than an icon font. */
-.menu-button span, .menu-button span::before, .menu-button span::after {
-  position: absolute; left: 14px; width: 18px; height: 2px; border-radius: 1px; background: var(--desk-ink); content: '';
+.menu-button span, .tb-menu, .menu-button span::before, .menu-button span::after, .tb-menu::before, .tb-menu::after {
+  position: absolute; width: 16px; height: 1.5px; border-radius: 1px; background: var(--slip-ink); content: '';
 }
-.menu-button span { top: 22px; }
-.menu-button span::before { left: 0; top: -6px; }
-.menu-button span::after { left: 0; top: 6px; }
+.menu-button span { left: 13px; top: 21px; }
+.tb-menu { position: relative; display: block; }
+.menu-button span::before, .tb-menu::before { left: 0; top: -5px; }
+.menu-button span::after, .tb-menu::after { left: 0; top: 5px; }
 
-.menu-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, 0.32); }
+/* The menu: a sheet from the left, over a dimmed page. */
+.menu-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, 0.22); animation: fade 0.18s ease; }
 .menu {
-  position: absolute; top: 0; left: 0; bottom: 0; width: min(320px, 86vw); padding: 22px 22px 28px;
-  display: flex; flex-direction: column; gap: 2px; overflow-y: auto; box-shadow: 6px 0 24px rgba(0, 0, 0, 0.35);
+  position: absolute; top: 10px; left: 10px; bottom: 10px; width: min(320px, 86vw); padding: 20px 14px;
+  display: flex; flex-direction: column; gap: 2px; overflow-y: auto; border-radius: 18px;
+  background: var(--glass); border: 1px solid var(--hairline); box-shadow: var(--float-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5); backdrop-filter: blur(24px) saturate(1.5);
+  animation: slide-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .menu a, .menu > button {
-  display: block; text-align: left; padding: 11px 6px; border: 0; border-radius: 6px; background: none;
-  color: var(--slip-ink); text-decoration: none; font-size: 1.05rem; min-height: 44px;
+  display: block; text-align: left; padding: 11px 12px; border: 0; border-radius: 10px; background: none;
+  color: var(--slip-ink); text-decoration: none; font-size: 1.02rem; min-height: 44px;
 }
 .menu a:hover, .menu > button:hover { background: color-mix(in srgb, var(--slip-ink) 7%, transparent); }
 .menu > button.danger { color: var(--accent); }
-.menu hr { width: 100%; border: 0; border-top: 1px solid color-mix(in srgb, var(--slip-ink) 15%, transparent); margin: 10px 0; }
-.menu-brand { font-family: var(--font-scripture); font-size: 1.25rem; margin: 2px 0 14px; }
-.menu-label { margin: 0 6px 4px; font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.menu hr { width: 100%; border: 0; border-top: 1px solid var(--hairline); margin: 8px 0; }
+.menu-brand { font-family: var(--font-scripture); font-size: 1.2rem; font-weight: 500; margin: 4px 12px 14px; }
+.menu-label { margin: 2px 12px 4px; font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .menu-close {
-  position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border: 0; background: none;
-  font-size: 1.6rem; line-height: 1; color: var(--muted);
+  position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; border: 0; border-radius: 50%;
+  background: color-mix(in srgb, var(--slip-ink) 7%, transparent); font-size: 1.3rem; line-height: 1; color: var(--muted);
 }
 
-/* ---------- The Bible's contents ---------- */
+/* ---------- Opening the Bible ---------- */
 
-.contents { max-width: 820px; }
-.contents-title { text-align: center; font-variant: small-caps; letter-spacing: 0.12em; }
-.contents-sub { text-align: center; color: var(--muted); margin: 0 0 22px; }
+.contents { max-width: 760px; }
+.contents-title { text-align: center; font-variant: small-caps; letter-spacing: 0.1em; }
+.contents-sub { text-align: center; color: var(--muted); margin: 0 0 24px; }
 .testaments { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 40px; }
-.testaments h2 { font-size: 0.95rem; font-variant: small-caps; letter-spacing: 0.1em; color: var(--muted); margin: 0 0 6px; }
-.book-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 16px; }
+.testaments h2 { font-family: var(--font-ui); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 6px; }
+.book-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 12px; }
 .book-list button, .page-paper .book-list button {
-  display: block; width: 100%; min-height: 38px; padding: 6px 4px; text-align: left;
-  border: 0; background: none; font-family: var(--font-scripture); font-size: 1.05rem;
+  display: block; width: 100%; min-height: 40px; padding: 6px 8px; text-align: left; border: 0; border-radius: 8px;
+  background: none; font-family: var(--font-scripture); font-size: 1.05rem; font-weight: 400;
 }
-.book-list button:hover { color: var(--accent); }
+.book-list button:hover { background: color-mix(in srgb, var(--slip-ink) 6%, transparent); }
 .quiet-link, .page-paper .quiet-link { border: 0; background: none; color: var(--muted); padding: 4px 0; min-height: 0; }
-.chapter-grid { list-style: none; padding: 0; margin: 0 0 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 8px; }
+.chapter-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 8px; }
 .chapter-grid button, .page-paper .chapter-grid button {
-  width: 100%; min-height: 52px; font-family: var(--font-scripture); font-size: 1.15rem; padding: 0;
+  width: 100%; min-height: 50px; padding: 0; border: 1px solid var(--hairline); border-radius: 12px;
+  background: color-mix(in srgb, var(--slip-ink) 3%, var(--slip)); font-family: var(--font-scripture); font-size: 1.1rem; font-weight: 400;
 }
-.chapter-grid.compact { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); margin: 4px 0 18px; }
-.chapter-grid.compact button {
-  min-height: 44px; border: 1px solid color-mix(in srgb, var(--slip-ink) 18%, transparent); border-radius: 6px; background: none;
-}
-.chapter-grid button[aria-current='page'] { border-color: var(--accent); color: var(--accent); }
-.typed { margin-top: 30px; padding-top: 18px; border-top: 1px solid color-mix(in srgb, var(--slip-ink) 12%, transparent); display: grid; gap: 6px; }
-.typed label { color: var(--muted); font-size: 0.92rem; }
+.chapter-grid button:hover { background: color-mix(in srgb, var(--slip-ink) 8%, var(--slip)); }
+.chapter-grid button[aria-current='page'] { background: var(--slip-ink); color: var(--slip); border-color: var(--slip-ink); }
+.typed { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--hairline); display: grid; gap: 6px; }
+.typed label { color: var(--muted); font-size: 0.9rem; }
 .typed-row { display: flex; gap: 8px; }
 .typed input {
-  flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; border-radius: 8px; font-size: 1.05rem;
-  border: 1px solid color-mix(in srgb, var(--slip-ink) 22%, transparent); background: color-mix(in srgb, var(--slip) 60%, #fff);
+  flex: 1; min-width: 0; min-height: 44px; padding: 8px 14px; border-radius: 12px; font-size: 1.05rem;
+  border: 1px solid var(--hairline); background: color-mix(in srgb, var(--slip-ink) 3%, var(--slip));
 }
 
-/* ---------- A study: the Bible beside the pad ---------- */
+/* ---------- A study: the workspace ---------- */
 
-.spread { display: grid; grid-template-columns: var(--page-w) var(--page-w); justify-content: center; gap: 30px; align-items: start; }
+/*
+ * The screen never scrolls; each pane does, on its own. Reading to the end of a
+ * chapter no longer carries the notes away (the first version scrolled them off).
+ */
+.workspace {
+  position: fixed; inset: 0; display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--notes-pane-w); grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: 'bible notes';
+}
+.pane {
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 44px 0 128px;
+  scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--slip-ink) 22%, transparent) transparent;
+}
+.bible-pane { grid-area: bible; }
+.notes-pane {
+  grid-area: notes; border-left: 1px solid var(--hairline);
+  /* Only the faintest tooth: enough to feel like paper, not enough to look aged. */
+  background-color: var(--paper); background-image: var(--paper-wear), var(--paper-texture), var(--paper-tooth);
+}
+.pane-tabs { display: none; }
 
-.bible-page {
-  position: relative; padding: 34px 48px 22px; border-radius: 2px 0 0 2px;
-  /* The inside edge darkens toward the spine, as a bound page does. */
-  box-shadow: var(--shadow), inset -18px 0 22px -18px rgba(0, 0, 0, 0.22);
-}
-.running-head { text-align: center; margin-bottom: 18px; }
-.running-head button {
-  border: 0; background: none; padding: 6px 10px; min-height: 40px;
-  font-family: var(--font-scripture); font-variant: small-caps; letter-spacing: 0.14em; font-size: 1rem; color: var(--muted);
-}
-.running-head button::after { content: ' ▾'; font-size: 0.7em; }
-.scripture {
-  /* Ragged right: justified at this measure opened rivers of space between words. */
-  font-family: var(--font-scripture); font-size: 1.16rem; line-height: 1.8; margin: 0;
-}
+.bible-col { width: min(var(--bible-w), 100% - 40px); margin: 0 auto; animation: turn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.book-name { text-align: center; margin: 0 0 22px; font-family: var(--font-scripture); font-variant: small-caps; letter-spacing: 0.14em; color: var(--muted); }
+.scripture { font-family: var(--font-scripture); font-optical-sizing: auto; font-size: 1.2rem; line-height: 1.75; margin: 0; color: var(--slip-ink); }
 /* The chapter number set large at the start, as printed Bibles do. */
-.drop { float: left; font-size: 3.6em; line-height: 0.82; margin: 0.08em 0.14em 0 0; color: var(--accent); }
-.vn { font-family: var(--font-ui); font-size: 0.6em; color: var(--muted); margin: 0 2px 0 1px; vertical-align: super; line-height: 0; }
+.drop { float: left; font-size: 3.5em; font-weight: 350; line-height: 0.82; margin: 0.06em 0.14em 0 0; color: var(--accent); }
+.vn { font-family: var(--font-ui); font-size: 0.58em; font-weight: 600; color: var(--muted); margin: 0 2px 0 1px; vertical-align: super; line-height: 0; }
 /* A study of a few verses keeps the rest of the chapter for context, set back. */
-.scripture.partial .v:not(.in-study) { opacity: 0.5; }
-.page-foot {
-  display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 10px;
-  border-top: 1px solid color-mix(in srgb, var(--slip-ink) 12%, transparent);
-  font-family: var(--font-scripture); font-variant: small-caps; letter-spacing: 0.08em; color: var(--muted);
-}
-.page-foot button { border: 0; background: none; color: var(--muted); font: inherit; min-height: 44px; padding: 0 10px; }
-.page-foot button:hover { color: var(--accent); }
-.translation { font-size: 0.82rem; }
+.scripture.partial .v:not(.in-study) { opacity: 0.45; }
+.translation { margin: 28px 0 0; text-align: center; font-size: 0.78rem; color: var(--muted); letter-spacing: 0.04em; }
 
 /* Words are buttons, so a tap, a click or a keyboard can mark them. */
 .word { all: unset; cursor: pointer; border-radius: 3px; }
-.word:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.word:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
 .word:focus-visible { outline: 2px solid var(--accent); }
 .word.mark-underline { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; }
 .word.mark-circle { border: 2px solid var(--accent); border-radius: 50% / 55%; padding: 0 4px; margin: 0 -2px; }
 .word.mark-box { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 1px; }
 
-/* The legal pad: gummed binding, the top sheet, and the sheets beneath. */
-.legal-pad { position: relative; isolation: isolate; }
-.legal-pad::before, .legal-pad::after {
-  content: ''; position: absolute; left: 0; right: 0; top: 26px; bottom: 0; z-index: -1;
-  background-color: var(--paper); background-image: var(--paper-fibres); box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-}
-.legal-pad::before { transform: translate(3px, 4px) rotate(0.25deg); filter: brightness(0.94); }
-.legal-pad::after { transform: translate(-2px, 8px) rotate(-0.35deg); filter: brightness(0.88); box-shadow: var(--shadow); z-index: -2; }
-.binding {
-  height: 26px; border-radius: 3px 3px 1px 1px; position: relative; z-index: 2;
-  background:
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.16), transparent 35%, rgba(0, 0, 0, 0.28)),
-    var(--paper-fibres),
-    color-mix(in srgb, var(--accent) 78%, #1a0a08);
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.35);
-}
-.pad-sheet {
-  position: relative; background-color: var(--paper); color: var(--ink); padding: calc(var(--line) * 1.25) 22px calc(var(--line) * 2) 0;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
-  background-image:
-    var(--paper-wear), var(--paper-texture), var(--paper-fibres), var(--paper-tooth),
-    linear-gradient(90deg, transparent calc(var(--margin-x) - 1px), var(--margin) calc(var(--margin-x) - 1px) var(--margin-x), transparent var(--margin-x) calc(var(--margin-x) + 3px), var(--margin) calc(var(--margin-x) + 3px) calc(var(--margin-x) + 4px), transparent calc(var(--margin-x) + 4px));
-}
-/* Perforations just under the binding, and light from the upper left with a lifting corner. */
-.pad-sheet::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 8px; height: 3px; opacity: 0.5;
-  background: radial-gradient(circle, rgba(0, 0, 0, 0.35) 0.8px, transparent 1.2px) 0 0 / 7px 3px repeat-x;
-}
-.pad-sheet::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background:
-    radial-gradient(ellipse at 15% -10%, rgba(255, 252, 240, 0.22), transparent 55%),
-    linear-gradient(315deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.04) 18px, transparent 40px) right bottom / 120px 120px no-repeat;
-}
-/*
- * Every block on the pad is a whole number of ruled lines tall, and the rules start at
- * the top of this surface, so whatever is written always sits on a line.
- */
+/* The notes: a legal pad, reduced to its colour, a margin line and faint rules. */
+.notes-col { width: min(var(--notes-w), 100% - 32px); margin: 0 auto; }
 .pad-surface {
-  padding-left: var(--text-x);
-  background-image: repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 1px), color-mix(in srgb, var(--rule) 85%, transparent) calc(var(--line) - 1px) var(--line));
+  padding-left: 18px; border-left: 1.5px solid var(--margin);
+  /* Every block is a whole number of rules tall, so writing always sits on a line. */
+  background-image: repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px) var(--line));
 }
 .pad-title {
-  display: block; width: 100%; height: calc(var(--line) * 2); padding: calc(var(--line) * 0.5) 0 0; border: 0; background: transparent;
-  font-family: var(--font-notes); font-size: calc(var(--line) * 0.95); line-height: calc(var(--line) * 1.5); color: var(--ink-notes);
+  display: block; width: 100%; height: calc(var(--line) * 2); padding: calc(var(--line) * 0.55) 0 0; border: 0; background: transparent;
+  font-family: var(--font-ui); font-size: 1.45rem; font-weight: 650; letter-spacing: -0.01em; line-height: calc(var(--line) * 1.45); color: var(--ink);
 }
-.pad-title::placeholder { color: color-mix(in srgb, var(--muted) 55%, transparent); }
-.pad-meta { margin: 0; height: var(--line); line-height: var(--line); font-size: calc(var(--line) * 0.42); color: var(--muted); }
-.pad-heading { margin: 0; height: var(--line); line-height: var(--line); font-family: var(--font-notes); color: var(--accent); }
+.pad-title::placeholder, .pad-lines::placeholder { color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.pad-meta { margin: 0; height: var(--line); line-height: var(--line); font-size: 0.82rem; color: var(--muted); }
+.pad-heading { margin: 0; height: var(--line); line-height: var(--line); font-weight: 600; color: var(--accent); }
 .pad-lines {
-  display: block; width: 100%; min-height: calc(var(--line) * 18); margin: 0; padding: 0; border: 0; outline-offset: 0;
+  display: block; width: 100%; min-height: calc(var(--line) * 16); margin: 0; padding: 0; border: 0; outline: none;
   background: transparent; resize: none; overflow: hidden;
-  font-family: var(--font-notes); font-size: calc(var(--line) * 0.6); line-height: var(--line); color: var(--ink-notes);
+  font-family: var(--font-notes); font-size: 1.05rem; line-height: var(--line); color: var(--ink-notes);
 }
 .pad-lines.short { min-height: calc(var(--line) * 3); }
 
@@ -275,75 +217,81 @@ main { padding: 72px 20px 120px; }
 .ink-surface.mouse-pen, .ink-surface.mouse-pen .word, .ink-surface.mouse-pen textarea, .ink-surface.mouse-pen input { cursor: crosshair; }
 .ink-note { position: relative; margin: 6px 0 0; font-size: 0.8rem; color: var(--accent); }
 
-/* The pen cup: one round button in the corner, opening to the pens. */
-.pen-cup { position: fixed; right: 18px; bottom: 18px; z-index: 15; display: grid; justify-items: end; gap: 10px; }
-.cup-row { display: flex; gap: 10px; align-items: center; }
-.cup, .undo {
-  border: 0; border-radius: 50%; display: grid; place-items: center;
-  background: color-mix(in srgb, var(--desk) 70%, #000 30%); color: var(--desk-ink); box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+/* ---------- The toolbar ---------- */
+
+.toolbar {
+  position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 15;
+  display: flex; align-items: center; gap: 2px; padding: 6px; border-radius: 18px;
+  background: var(--glass); border: 1px solid var(--hairline); box-shadow: var(--float-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5); backdrop-filter: blur(20px) saturate(1.5);
 }
-.cup { width: 58px; height: 58px; }
-.cup .nib { width: 20px; height: 20px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--desk-ink) 30%, transparent); }
-.undo { width: 46px; height: 46px; font-size: 1.4rem; }
-/* Nothing to undo: nothing to show. */
-.undo:disabled { visibility: hidden; }
-.pen-choices {
-  display: grid; gap: 2px; padding: 8px; border-radius: 12px; min-width: 210px;
-  background: var(--slip); color: var(--slip-ink); box-shadow: var(--shadow);
+.tb-icon, .tb-place {
+  display: grid; place-items: center; min-width: 44px; height: 44px; padding: 0 10px; border: 0; border-radius: 12px;
+  background: none; color: var(--slip-ink); font-size: 1.35rem; line-height: 1;
 }
-.pen-choices button {
-  display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 6px 10px; border: 0; border-radius: 8px;
-  background: none; text-align: left; font-size: 1rem;
-}
-.pen-choices button[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 9%, transparent); font-weight: 600; }
-.mouse-writes { display: flex; gap: 8px; align-items: center; padding: 8px 10px 4px; font-size: 0.88rem; color: var(--muted); }
-/* A finger or Pencil device has no use for "write with the mouse". */
-@media (pointer: coarse) { .mouse-writes { display: none; } }
-.nib { display: inline-block; width: 14px; height: 14px; border-radius: 50%; flex: none; }
+.tb-place { font-size: 1rem; font-weight: 600; padding: 0 14px; white-space: nowrap; }
+.tb-icon:hover:not(:disabled), .tb-place:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); }
+.tb-icon[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 12%, transparent); }
+.tb-sep { width: 1px; height: 24px; margin: 0 6px; background: var(--hairline); }
+.tb-pens { display: flex; align-items: center; gap: 2px; }
+.nib { display: inline-block; width: 16px; height: 16px; border-radius: 50%; flex: none; }
+.tb-read svg { width: 18px; height: 18px; fill: var(--slip-ink); }
 .nib-pen { background: var(--ink-notes); }
 .nib-red { background: var(--accent); }
 .nib-pencil { background: var(--muted); }
-.nib-highlighter { background: #f2d43a; border-radius: 3px; }
-.nib-eraser { background: #f4f1ec; border: 1px solid #b7afa3; border-radius: 3px; }
+.nib-highlighter { width: 18px; height: 12px; background: #f2d43a; border-radius: 3px; }
+.nib-eraser { width: 18px; height: 12px; background: var(--slip); border: 1.5px solid var(--muted); border-radius: 3px; }
+/* An Apple Pencil always writes and a finger never does, so a touch device has no
+   use for "Read"; it exists for the mouse. */
+@media (pointer: coarse) { .tb-read { display: none; } }
+
+.chapter-picker {
+  position: fixed; left: 50%; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 66px); transform: translateX(-50%); z-index: 16;
+  width: min(520px, calc(100vw - 24px)); max-height: 46vh; overflow-y: auto; padding: 14px; border-radius: 18px;
+  background: var(--glass); border: 1px solid var(--hairline); box-shadow: var(--float-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5); backdrop-filter: blur(24px) saturate(1.5);
+  animation: rise 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
 
 /* ---------- Your studies ---------- */
 
-.study-list { list-style: none; padding: 0; margin: 10px 0 22px; border-top: 1px solid color-mix(in srgb, var(--slip-ink) 12%, transparent); }
-.study-list li { border-bottom: 1px solid color-mix(in srgb, var(--slip-ink) 12%, transparent); }
-.study-list a {
-  display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; padding: 14px 4px; color: var(--slip-ink); text-decoration: none;
-}
+.study-list { list-style: none; padding: 0; margin: 12px 0 24px; }
+.study-list li + li { border-top: 1px solid var(--hairline); }
+.study-list a { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; padding: 14px 8px; border-radius: 10px; color: var(--slip-ink); text-decoration: none; }
 .study-list a:hover { background: color-mix(in srgb, var(--slip-ink) 5%, transparent); }
-.study-title { font-family: var(--font-scripture); font-size: 1.2rem; }
-.study-passage { grid-row: 2; color: var(--muted); font-size: 0.92rem; }
-.study-date { grid-column: 2; grid-row: 1; color: var(--muted); font-size: 0.88rem; align-self: center; }
+.study-title { font-family: var(--font-scripture); font-size: 1.15rem; }
+.study-passage { grid-row: 2; color: var(--muted); font-size: 0.9rem; }
+.study-date { grid-column: 2; grid-row: 1; color: var(--muted); font-size: 0.86rem; align-self: center; }
 
 /* ---------- Paper styles ---------- */
 
-.skin-grid { max-width: 760px; margin: 0 auto 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 18px; }
-.skin-card {
-  all: unset; cursor: pointer; display: grid; gap: 4px; padding: 10px; border-radius: 10px;
-  background: var(--desk); color: var(--desk-ink); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+.auto-card {
+  all: unset; cursor: pointer; display: block; max-width: 680px; margin: 0 auto 16px; padding: 14px 16px; border-radius: 14px;
+  border: 1px solid var(--hairline); background: color-mix(in srgb, var(--slip-ink) 3%, var(--slip));
 }
-.skin-card.current { outline: 3px solid var(--desk-ink); }
-.skin-card:focus-visible { outline: 3px solid #fff; }
-.skin-preview { display: block; }
-.skin-preview .binding { height: 10px; }
+.auto-card span { color: var(--muted); }
+.auto-card.current, .skin-card.current { outline: 2px solid var(--accent); outline-offset: 2px; }
+.skin-grid { max-width: 680px; margin: 0 auto 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+.skin-card {
+  all: unset; cursor: pointer; display: grid; gap: 6px; padding: 8px; border-radius: 16px;
+  background: var(--slip); color: var(--slip-ink); border: 1px solid var(--hairline); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.skin-preview { display: block; overflow: hidden; border-radius: 10px; }
 .skin-sheet {
-  display: grid; gap: 6px; padding: 12px 10px 14px 30px; min-height: 104px; position: relative; background-color: var(--paper);
-  background-image: var(--paper-wear), var(--paper-fibres), var(--paper-tooth),
-    linear-gradient(90deg, transparent 21px, var(--margin) 21px 22px, transparent 22px),
+  display: grid; gap: 6px; padding: 12px 10px 14px 26px; min-height: 100px; position: relative; background-color: var(--paper);
+  background-image: var(--paper-fibres),
+    linear-gradient(90deg, transparent 17px, var(--margin) 17px 18px, transparent 18px),
     repeating-linear-gradient(to bottom, transparent 0 19px, var(--rule) 19px 20px);
 }
 .skin-scripture { font-family: var(--font-scripture); color: var(--ink); font-size: 0.85rem; }
 .skin-note { font-family: var(--font-notes); color: var(--ink-notes); }
-.skin-name { font-weight: 600; }
-.skin-by { font-size: 0.8rem; opacity: 0.8; }
+.skin-name { font-weight: 600; padding: 0 4px; }
+.skin-by { font-size: 0.8rem; color: var(--muted); padding: 0 4px; }
 .make summary { cursor: pointer; font-family: var(--font-scripture); font-size: 1.15rem; }
 .make ol { padding-left: 1.2rem; line-height: 1.9; }
 .make textarea {
-  width: 100%; font-family: ui-monospace, monospace; font-size: 0.85rem; padding: 10px; border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--slip-ink) 22%, transparent); background: color-mix(in srgb, var(--slip) 60%, #fff);
+  width: 100%; font-family: ui-monospace, monospace; font-size: 0.85rem; padding: 10px; border-radius: 12px;
+  border: 1px solid var(--hairline); background: color-mix(in srgb, var(--slip-ink) 3%, var(--slip));
 }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -352,19 +300,36 @@ main { padding: 72px 20px 120px; }
 .about { font-size: 1.05rem; }
 .soli { font-variant: small-caps; letter-spacing: 0.12em; color: var(--accent); margin: 0; }
 
-/* ---------- Narrower screens: the pad below the Bible ---------- */
+/* ---------- Motion ---------- */
 
-/* Too narrow for both side by side: the pad goes under the Bible, at the same width. */
-@media (max-width: 1165px) {
-  .spread { grid-template-columns: min(100%, var(--page-w)); gap: 44px; }
+@keyframes turn { from { opacity: 0; transform: translateX(10px); } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes slide-in { from { opacity: 0; transform: translateX(-16px); } }
+@keyframes rise { from { opacity: 0; transform: translate(-50%, 8px); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+
+/* ---------- Narrower screens ---------- */
+
+/* An upright iPad: the notes under the Bible, both always in view. */
+@media (max-width: 999px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 42%; grid-template-areas: 'bible' 'notes'; }
+  .notes-pane { border-left: 0; border-top: 1px solid var(--hairline); padding-top: 18px; }
 }
-@media (max-width: 640px) {
-  :root { --margin-x: 30px; --text-x: 42px; }
-  main { padding: 68px 10px 120px; }
-  .page-paper { padding: 26px 20px; }
-  .bible-page { padding: 26px 20px 16px; }
+/* A phone: one pane at a time, a tap apart. */
+@media (max-width: 599px) {
+  main { padding: 72px 14px 64px; }
   .testaments { grid-template-columns: 1fr; }
-  .scripture { font-size: 1.08rem; }
+  .workspace { grid-template-rows: auto minmax(0, 1fr); grid-template-areas: 'tabs' 'pane'; }
+  .pane-tabs {
+    grid-area: tabs; display: flex; gap: 2px; justify-self: center; margin: 10px 0 0; padding: 3px; border-radius: 12px;
+    background: color-mix(in srgb, var(--slip-ink) 7%, transparent);
+  }
+  .pane-tabs button { min-height: 36px; min-width: 96px; border: 0; border-radius: 9px; background: none; font-weight: 600; color: var(--muted); }
+  .pane-tabs button[aria-selected='true'] { background: var(--slip); color: var(--slip-ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+  .bible-pane, .notes-pane { grid-area: pane; border: 0; padding-top: 20px; }
+  .workspace.show-bible .notes-pane, .workspace.show-notes .bible-pane { display: none; }
+  .scripture { font-size: 1.1rem; }
+  .tb-pens-sep, .tb-pens { display: none; }
 }
 
 .print-lines, .print-text { display: none; }
@@ -377,29 +342,27 @@ main { padding: 72px 20px 120px; }
 
 @media print {
   html, body { background: #fff !important; }
-  body::before, .menu-button, .pen-cup, .alert, .page-foot button, .ink-note, .chapter-grid { display: none !important; }
-  .running-head button::after { content: none; }
+  .menu-button, .toolbar, .chapter-picker, .pane-tabs, .alert, .ink-note { display: none !important; }
   main { padding: 0; }
-  .bible-page, .pad-sheet, .page-paper { background: #fff !important; box-shadow: none !important; }
-  .legal-pad::before, .legal-pad::after, .pad-sheet::before, .pad-sheet::after, .binding { display: none !important; }
-  .spread { display: block; max-width: none; }
-  .bible-page { padding: 0; }
+  .workspace { position: static; display: block; }
+  .pane { overflow: visible; padding: 0; background: #fff !important; border: 0 !important; }
+  .bible-col, .notes-col { width: auto; animation: none; }
   .scripture { font-size: 11.5pt; line-height: 1.6; }
   /* Print just the study's verses, unless there is ink on the page: removing the
      context verses would move the text out from under what was written on it. */
   .scripture.partial:not(.inked) .v:not(.in-study) { display: none; }
-  .word.mark-underline, .word.mark-circle, .word.mark-box, .ink, .pad-surface, .pad-sheet {
+  .word.mark-underline, .word.mark-circle, .word.mark-box, .ink, .pad-surface {
     print-color-adjust: exact; -webkit-print-color-adjust: exact;
   }
-
-  /* My notes: the passage, then the pad's writing on its rules. */
-  body[data-print='notes'] .legal-pad { margin-top: 18pt; }
   textarea.pad-lines { display: none; }
   .print-text { display: block; white-space: pre-wrap; min-height: 0; }
 
+  /* My notes: the passage, then the notes on their rules. */
+  body[data-print='notes'] .notes-pane { margin-top: 18pt; }
+
   /* Lines to write on: the passage beside ruled lines, on legal paper. */
-  body[data-print='lines'] .spread { page: legal; display: grid; grid-template-columns: 46% 1fr; column-gap: 0.3in; align-items: start; }
-  body[data-print='lines'] .legal-pad { display: none; }
+  body[data-print='lines'] .workspace { page: legal; display: grid; grid-template-columns: 46% 1fr; grid-template-areas: none; column-gap: 0.3in; align-items: start; }
+  body[data-print='lines'] .notes-pane { display: none; }
   body[data-print='lines'] .print-lines {
     display: block; print-color-adjust: exact; -webkit-print-color-adjust: exact; border-left: 2.5pt double #d4574f; padding-left: 4pt;
   }

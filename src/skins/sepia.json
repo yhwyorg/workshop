@@ -1,0 +1,12 @@
+{
+  "format": "workshop-skin/1",
+  "name": "Sepia",
+  "author": "Workshop",
+  "description": "The colour of an old study Bible.",
+  "dark": false,
+  "desk": { "color": "#3a2e22", "grain": 0 },
+  "paper": { "color": "#f3e7c9", "lines": "#d9c9a3", "margin": "#d9a08f", "spacing": 32, "grain": 0.3, "wear": 0 },
+  "ink": { "text": "#3b2f22", "notes": "#3d3a6b", "accent": "#9a3412", "muted": "#7a6a55" },
+  "slip": { "color": "#f6eedc", "ink": "#3b2f22" },
+  "fonts": { "scripture": "book", "notes": "clean", "ui": "clean" }
+}

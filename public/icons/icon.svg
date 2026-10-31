@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#fbf9f4"/>
+  <rect x="236" y="96" width="192" height="320" rx="10" fill="#fcf4d4"/>
+  <g stroke="#cfdcea" stroke-width="5"><path d="M236 176h192M236 216h192M236 256h192M236 296h192M236 336h192M236 376h192"/></g>
+  <path d="M266 96v320" stroke="#efb9ae" stroke-width="5"/>
+  <text x="152" y="318" text-anchor="middle" font-family="Georgia, serif" font-size="210" fill="#b42318">J</text>
+  <path d="M300 222c30-8 60-8 96 2" stroke="#1e3a8a" stroke-width="8" fill="none" stroke-linecap="round"/>
+</svg>

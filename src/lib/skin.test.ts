@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BUILT_IN } from '../skins';
 import { FONTS, SKIN_PROMPT, contrast, skinVariables, validateSkin } from './skin';
 
-const legal = BUILT_IN['legal-pad'] as Record<string, unknown>;
+const legal = BUILT_IN.daylight as Record<string, unknown>;
 const tweak = (path: string, value: unknown) => {
   const copy = structuredClone(legal) as Record<string, Record<string, unknown>>;
   const [a, b] = path.split('.');
