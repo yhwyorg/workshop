@@ -169,24 +169,43 @@ export function loadReference(r: Reference, book: string, chapter: number, fetch
   return p;
 }
 
-/** The reference last chosen, so it is there again next time. A preference, kept per device. */
-const REF_KEY = 'workshop:reference';
+/** The most references open at once. Past four, the columns get too narrow to read. */
+export const MAX_REFERENCES = 4;
 
-export function savedReference(): Reference | null {
+/** The references last open, so they are there again next time. A preference, kept per device. */
+const REFS_KEY = 'workshop:references';
+/** Before more than one could be open, the one reference was kept here. */
+const OLD_REF_KEY = 'workshop:reference';
+
+/**
+ * The references named in storage, in the order they were opened. Ids this version
+ * doesn't offer (renamed, withdrawn) are skipped, not an error: it is only a preference,
+ * and nothing written is lost.
+ */
+export function readReferences(saved: string | null, old: string | null): Reference[] {
+  let ids: unknown = [];
   try {
-    const id = localStorage.getItem(REF_KEY);
-    // An id this version doesn't offer (renamed, withdrawn) means none, not an error:
-    // it is only a preference, and nothing written is lost.
-    return REFERENCES.find((r) => r.id === id) ?? null;
+    ids = saved === null ? (old ? [old] : []) : JSON.parse(saved);
   } catch {
-    return null;
+    ids = [];
+  }
+  if (!Array.isArray(ids)) return [];
+  const found = ids.map((id) => REFERENCES.find((r) => r.id === id)).filter((r): r is Reference => !!r);
+  return [...new Set(found)].slice(0, MAX_REFERENCES);
+}
+
+export function savedReferences(): Reference[] {
+  try {
+    return readReferences(localStorage.getItem(REFS_KEY), localStorage.getItem(OLD_REF_KEY));
+  } catch {
+    return [];
   }
 }
 
-export function keepReference(r: Reference | null) {
+export function keepReferences(refs: Reference[]) {
   try {
-    if (r) localStorage.setItem(REF_KEY, r.id);
-    else localStorage.removeItem(REF_KEY);
+    localStorage.setItem(REFS_KEY, JSON.stringify(refs.map((r) => r.id)));
+    localStorage.removeItem(OLD_REF_KEY);
   } catch {
     // Blocked storage: the choice lasts until the page is closed, which is all we can do.
   }

@@ -1,15 +1,22 @@
-import { useEffect, useState } from 'react';
-import { loadReference, REFERENCES, type Loaded, type Reference } from '../lib/reference';
+import { useEffect, useRef, useState } from 'react';
+import { loadReference, MAX_REFERENCES, REFERENCES, type Loaded, type Reference } from '../lib/reference';
 
-/** The choice of reference, opened from Compare in the toolbar. */
-export function ReferencePicker({ current, choose }: { current: Reference | null; choose: (r: Reference) => void }) {
+/**
+ * The choice of references, opened from Compare in the toolbar. Choosing one opens it
+ * beside the others; choosing an open one closes it.
+ */
+export function ReferencePicker({ open, choose }: { open: Reference[]; choose: (r: Reference) => void }) {
+  const full = open.length >= MAX_REFERENCES;
   const group = (kind: Reference['kind'], title: string) => (
     <>
       <p className="picker-head">{title}</p>
       <ul className="ref-choices">
         {REFERENCES.filter((r) => r.kind === kind).map((r) => (
           <li key={r.id}>
-            <button type="button" aria-pressed={r.id === current?.id} onClick={() => choose(r)}>
+            <button
+              type="button" aria-pressed={open.some((o) => o.id === r.id)} onClick={() => choose(r)}
+              disabled={full && !open.some((o) => o.id === r.id)}
+            >
               <span className="ref-name">{r.name}</span>
               {r.scope && <span className="ref-scope"> {r.scope}</span>}
             </button>
@@ -20,6 +27,7 @@ export function ReferencePicker({ current, choose }: { current: Reference | null
   );
   return (
     <div className="chapter-picker ref-picker" role="dialog" aria-label="Compare with">
+      {full && <p className="quiet picker-note">{MAX_REFERENCES} can be open at once. Close one to open another.</p>}
       {group('translation', 'Translations')}
       {group('commentary', 'Commentaries')}
     </div>
@@ -40,6 +48,13 @@ export function ReferenceText({ reference: r, book, bookName, chapter, close }: 
   const [loaded, setLoaded] = useState<Loaded | { state: 'loading' }>({ state: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const place = `${bookName} ${chapter}`;
+  const col = useRef<HTMLDivElement>(null);
+
+  // A new chapter starts at its top, as the Bible's does; scrolling together would do
+  // the same, but not when it is switched off.
+  useEffect(() => {
+    col.current?.closest('.pane')?.scrollTo({ top: 0 });
+  }, [book, chapter]);
 
   useEffect(() => {
     let live = true;
@@ -53,7 +68,7 @@ export function ReferenceText({ reference: r, book, bookName, chapter, close }: 
   const retry = <button type="button" className="quiet-link" onClick={() => setAttempt((a) => a + 1)}>Try again</button>;
 
   return (
-    <div className="ref-col">
+    <div className="ref-col" ref={col}>
       <div className="ref-head">
         <p className="book-name">{r.name}</p>
         <button type="button" className="tb-icon ref-close" onClick={close} aria-label={`Close ${r.name}`} title="Close">×</button>
@@ -80,7 +95,7 @@ export function ReferenceText({ reference: r, book, bookName, chapter, close }: 
               {heading && <h3 className="ref-heading">{heading}</h3>}
               <p>
                 {verses.map((v) => (
-                  <span key={v.number}>
+                  <span key={v.number} data-verse={v.number}>
                     <sup className="vn">{v.number}</sup>
                     {v.text}{' '}
                   </span>
@@ -93,7 +108,7 @@ export function ReferenceText({ reference: r, book, bookName, chapter, close }: 
         <div className="ref-text commentary">
           {loaded.introduction?.map((p, i) => <p key={`i${i}`}>{p}</p>)}
           {loaded.notes.map((n) => (
-            <section key={n.verse}>
+            <section key={n.verse} data-verse={n.verse}>
               {/* Where the note begins; the source doesn't say where it ends. */}
               <h3 className="ref-heading">Verse {n.verse}</h3>
               {n.paragraphs.map((p, i) => <p key={i}>{p}</p>)}

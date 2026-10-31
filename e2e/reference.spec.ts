@@ -1,40 +1,9 @@
-import { readFileSync, existsSync } from 'node:fs';
-import type { Page } from '@playwright/test';
-import { beginStudy, expect, show, test, typeNotes } from './fixtures';
+import { beginStudy, compareWith, expect, forgiveFailedLoads, recordedApi, show, test, typeNotes } from './fixtures';
 
 /**
- * The reference pane: another translation or a commentary beside the Bible.
- *
- * The API is replaced by responses recorded from it (e2e/recorded/, fetched from
- * bible.helloao.org on 2026-10-31), so these tests are about the page, not about a
- * website's uptime. A chapter with no recording answers 404, as the API does for a
- * book a commentary does not cover.
+ * The reference pane: another translation or a commentary beside the Bible. The API
+ * is replaced by recorded responses (see recordedApi in fixtures.ts).
  */
-async function recordedApi(page: Page, opts: { down?: boolean } = {}) {
-  await page.route('https://bible.helloao.org/api/**', async (route) => {
-    if (opts.down) return route.abort('internetdisconnected');
-    const path = new URL(route.request().url()).pathname.replace('/api/', '').replace(/\.json$/, '');
-    const file = new URL(`./recorded/${path.replaceAll('/', '_')}.json`, import.meta.url);
-    if (!existsSync(file)) return route.fulfill({ status: 404, contentType: 'text/html', body: '<html>Not found</html>' });
-    return route.fulfill({ status: 200, contentType: 'application/json', body: readFileSync(file, 'utf8') });
-  });
-}
-
-/**
- * The browser logs every 404 and every failed request to the console itself; the page
- * cannot stop it. Only those lines are forgiven, so any other error still fails.
- */
-function forgiveFailedLoads(errors: string[]) {
-  const rest = errors.filter((e) => !/^Failed to load resource/.test(e));
-  errors.splice(0, errors.length, ...rest);
-}
-
-async function compareWith(page: Page, name: string) {
-  // Exact: every word of Scripture is a button too, and Romans 8:18 has "compared".
-  await page.getByRole('button', { name: 'Compare', exact: true }).click();
-  await page.getByRole('button', { name: new RegExp(`^${name}`) }).click();
-}
-
 test.describe('the reference pane', () => {
   test('Compare puts another translation beside the Bible, at the same chapter', async ({ page }) => {
     await recordedApi(page);

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import bsbJhn15 from '../../e2e/recorded/BSB_JHN_15.json';
 import mhJhn15 from '../../e2e/recorded/c_matthew-henry_JHN_15.json';
 import { BOOKS } from './books';
-import { REFERENCES, chapterUrl, loadReference, readCommentary, readTranslation, usfm } from './reference';
+import { MAX_REFERENCES, REFERENCES, chapterUrl, loadReference, readCommentary, readReferences, readTranslation, usfm } from './reference';
 
 // The book ids bible.helloao.org serves, as listed by /api/BSB/books.json on 2026-10-31.
 const API_BOOKS =
@@ -88,5 +88,31 @@ describe('the references offered', () => {
     for (const r of REFERENCES.filter((x) => x.licence.startsWith('CC BY-SA'))) {
       expect(r.attribution, r.id).toBeTruthy();
     }
+  });
+});
+
+describe('the references kept open', () => {
+  const ids = (refs: { id: string }[]) => refs.map((r) => r.id);
+
+  it('come back in the order they were opened', () => {
+    expect(ids(readReferences('["bsb","kjv","matthew-henry"]', null))).toEqual(['bsb', 'kjv', 'matthew-henry']);
+  });
+
+  it('keep the one reference saved before several could be open', () => {
+    expect(ids(readReferences(null, 'kjv'))).toEqual(['kjv']);
+  });
+
+  it('skip ids this version does not offer, and repeats, rather than failing', () => {
+    expect(ids(readReferences('["kjv","msg-withdrawn","kjv"]', null))).toEqual(['kjv']);
+  });
+
+  it('are none when what was stored is unreadable', () => {
+    expect(readReferences('{not json', 'kjv')).toEqual([]);
+    expect(readReferences('"kjv"', null)).toEqual([]);
+  });
+
+  it('are never more than the columns can hold', () => {
+    const all = JSON.stringify(REFERENCES.map((r) => r.id));
+    expect(readReferences(all, null)).toHaveLength(MAX_REFERENCES);
   });
 });
