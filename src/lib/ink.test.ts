@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compact, strokePath, touches } from './ink';
+import { compact, inkBottom, strokePath, touches } from './ink';
 import type { Stroke } from './studies';
 
 const line: Stroke = { tool: 'pen', pts: [0, 0, 0.5, 20, 0, 0.6, 40, 0, 0.7, 60, 0, 0.6] };
@@ -24,5 +24,17 @@ describe('ink', () => {
 
   it('keeps stored points small', () => {
     expect(compact(10.26, 3.74, 0.4567)).toEqual([10.5, 3.5, 0.46]);
+  });
+});
+
+describe('how far down the ink goes', () => {
+  it('is the lowest point of any stroke, so the page can keep room below it', () => {
+    const ink = { width: 400, strokes: [{ tool: 'pen' as const, pts: [10, 40, 0.5, 20, 300, 0.5] }, { tool: 'red' as const, pts: [5, 120, 0.5] }] };
+    expect(inkBottom(ink)).toBe(300);
+  });
+
+  it('is nothing for a page with no ink', () => {
+    expect(inkBottom(undefined)).toBe(0);
+    expect(inkBottom({ width: 400, strokes: [] })).toBe(0);
   });
 });

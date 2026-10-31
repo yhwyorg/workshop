@@ -1,4 +1,4 @@
-import { beginStudy, draw, expect, savedStudies, show, test } from './fixtures';
+import { beginStudy, draw, expect, savedStudies, show, test, typeNotes } from './fixtures';
 
 test.describe('beginning', () => {
   test('a first visit opens the Bible to choose where to begin', async ({ page }) => {
@@ -39,8 +39,7 @@ test.describe('beginning', () => {
     // change without a sign: CI found it when a study begun just before leaving was gone
     // (the reopen test above landed on #/new). The same happens to a closed iPad tab.
     await beginStudy(page, 'Mark', 4);
-    await show(page, 'Notes');
-    await page.getByLabel('Notes', { exact: true }).fill('The sower sows the word.');
+    await typeNotes(page, 'The sower sows the word.');
     await page.goto('/');
     await show(page, 'Notes');
     await expect(page.getByLabel('Notes', { exact: true })).toHaveValue('The sower sows the word.');
@@ -56,9 +55,8 @@ test.describe('working on a passage', () => {
     const vine = page.locator('.word').filter({ hasText: /^vine,$/ }).first();
     await vine.click();
     await vine.click();
-    await show(page, 'Notes');
-    await page.getByLabel('Title').fill('Remain in me');
-    await page.getByLabel('Notes', { exact: true }).fill('Remain: eleven times.');
+    await typeNotes(page, 'Remain in me', 'Title');
+    await typeNotes(page, 'Remain: eleven times.');
     await expect.poll(async () => (await savedStudies(page))[0]?.notes?.page).toBe('Remain: eleven times.');
 
     await page.reload();

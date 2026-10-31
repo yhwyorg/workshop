@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import type { Page } from '@playwright/test';
-import { beginStudy, expect, show, test } from './fixtures';
+import { beginStudy, expect, show, test, typeNotes } from './fixtures';
 
 /**
  * The reference pane: another translation or a commentary beside the Bible.
@@ -94,8 +94,7 @@ test.describe('the reference pane', () => {
     await compareWith(page, 'King James Version');
     await show(page, 'KJV');
     await expect(page.getByRole('region', { name: 'King James Version' }).getByRole('alert')).toContainText('couldn’t be reached');
-    await show(page, 'Notes');
-    await page.getByLabel('Notes', { exact: true }).fill('Still writing.');
+    await typeNotes(page, 'Still writing.');
     await expect(page.getByLabel('Notes', { exact: true })).toHaveValue('Still writing.');
     forgiveFailedLoads(errors);
   });

@@ -245,6 +245,19 @@ button:disabled { opacity: 0.35; cursor: default; }
 .ink-surface { position: relative; }
 .ink { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .ink-surface.mouse-pen, .ink-surface.mouse-pen .word, .ink-surface.mouse-pen textarea, .ink-surface.mouse-pen input { cursor: crosshair; }
+/* A writing finger must reach the page as pointer events, not become the browser's
+   scroll; two-finger scrolling is done by the surface itself. */
+.ink-surface.finger-pen { touch-action: none; }
+/* Read-only while writing: no text cursor, no selection to fight the pen. */
+.pad-surface.writing textarea, .pad-surface.writing input { cursor: inherit; user-select: none; -webkit-user-select: none; }
+
+/* Write | Type, above the notes. */
+.notes-mode { display: flex; justify-content: flex-end; gap: 2px; margin: 0 0 6px; }
+.notes-mode button {
+  min-height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: none;
+  font-size: 0.86rem; font-weight: 600; color: var(--muted);
+}
+.notes-mode button[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 10%, transparent); color: var(--slip-ink); }
 .ink-note { position: relative; margin: 6px 0 0; font-size: 0.8rem; color: var(--accent); }
 
 /* ---------- The toolbar ---------- */
@@ -385,7 +398,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 @media print {
   html, body { background: #fff !important; }
   /* The reference is for the desk, not the printout: it is someone else's text. */
-  .menu-button, .toolbar, .chapter-picker, .pane-switch, .ref-pane, .alert, .ink-note { display: none !important; }
+  .menu-button, .toolbar, .chapter-picker, .pane-switch, .ref-pane, .alert, .ink-note, .notes-mode { display: none !important; }
   main { padding: 0; }
   .workspace { position: static; display: block; }
   .pane { overflow: visible; padding: 0; background: #fff !important; border: 0 !important; }

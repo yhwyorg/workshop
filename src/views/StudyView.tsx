@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BY_CODE } from '../lib/books';
-import { TOOL_STYLE } from '../lib/ink';
+import { inkBottom, TOOL_STYLE } from '../lib/ink';
 import { useMediaQuery } from '../lib/media';
 import { keepReference, savedReference, type Reference } from '../lib/reference';
 import { chapterOf, key, parsePassage, verseOf, type Lengths, type Passage, type VerseKey } from '../lib/refs';
@@ -30,6 +30,28 @@ const PENS: Tool[] = ['pen', 'red', 'highlighter'];
 type Book = { state: 'loading' } | { state: 'ready'; text: string[][] } | { state: 'failed'; message: string };
 
 const fine = () => typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches;
+
+/** Per-device preferences: kept in the browser, lost harmlessly if storage is blocked. */
+const pref = {
+  get: (k: string) => {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  },
+  set: (k: string, v: string) => {
+    try {
+      localStorage.setItem(k, v);
+    } catch {
+      /* the preference lasts until the page closes */
+    }
+  },
+};
+/** "write" or "type": how the notes take input on this device. */
+const NOTES_MODE_KEY = 'workshop:notes-mode';
+/** Set once a Pencil has been used here; from then on fingers scroll, not write. */
+const PENCIL_KEY = 'workshop:pencil';
 
 /**
  * A study: the Bible and the notes, each in its own pane that scrolls on its own, and
@@ -64,6 +86,8 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   const [reference, setReference] = useState<Reference | null>(savedReference);
   const [jump, setJump] = useState(false);
   const [comparing, setComparing] = useState(false);
+  const [notesMode, setNotesMode] = useState<'write' | 'type'>(() => (pref.get(NOTES_MODE_KEY) === 'type' ? 'type' : 'write'));
+  const [pencil, setPencil] = useState(() => pref.get(PENCIL_KEY) === '1');
   const phone = useMediaQuery('(max-width: 599px)');
   const wide = useMediaQuery('(min-width: 1600px)');
   // What each change of ink replaced, newest last, so Undo can put it back.
@@ -156,7 +180,21 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   // writes only on a laptop with a pen chosen: on an iPad the default tool is the pen,
   // and a trackpad (Magic Keyboard) would otherwise draw instead of tapping words.
   const tool = choice === 'read' ? 'pen' : choice;
-  const pen = { tool, mouseDraws: fine() && choice !== 'read' };
+  const onPen = () => {
+    if (pencil) return;
+    setPencil(true);
+    pref.set(PENCIL_KEY, '1');
+  };
+  const pen = { tool, mouseDraws: fine() && choice !== 'read', onPen };
+  const writeNotes = notesMode === 'write';
+  // The notes, when for writing, take every pointer: nothing there needs a click.
+  // Fingers stop once a Pencil has been used, as Apple Notes does, so a palm resting
+  // on the glass leaves no marks.
+  const notesPen = { ...pen, mouseDraws: writeNotes || pen.mouseDraws, fingerDraws: writeNotes && !pencil };
+  const chooseNotesMode = (m: 'write' | 'type') => {
+    setNotesMode(m);
+    pref.set(NOTES_MODE_KEY, m);
+  };
 
   return (
     <div className={`workspace show-${front}${reference ? ' has-ref' : ''}`}>
@@ -181,7 +219,7 @@ export default function StudyView({ study, lengths, update, openMenu }: {
       )}
 
       <section className="pane notes-pane" role="region" aria-label="Your notes">
-        <Notes study={study} update={update} ink={study.ink?.pad} setInk={setInk('pad')} {...pen} />
+        <Notes study={study} update={update} ink={study.ink?.pad} setInk={setInk('pad')} mode={notesMode} setMode={chooseNotesMode} {...notesPen} />
       </section>
 
       {/* Print only, for "Print with lines to write on". */}
@@ -239,7 +277,7 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   );
 }
 
-function BibleText({ passage, chapter, name, book, marks, onMark, ink, setInk, tool, mouseDraws }: {
+function BibleText({ passage, chapter, name, book, marks, onMark, ink, setInk, tool, mouseDraws, onPen }: {
   passage: Passage;
   chapter: number;
   name: string;
@@ -250,6 +288,7 @@ function BibleText({ passage, chapter, name, book, marks, onMark, ink, setInk, t
   setInk: (ink: Ink) => void;
   tool: Tool | 'eraser';
   mouseDraws: boolean;
+  onPen: () => void;
 }) {
   const inStudy = (k: VerseKey) => k >= passage.start && k <= passage.end;
   // A study of whole chapters needs no emphasis; a few verses within a chapter are set
@@ -262,7 +301,7 @@ function BibleText({ passage, chapter, name, book, marks, onMark, ink, setInk, t
   return (
     <div className="bible-col">
       <p className="book-name">{name}</p>
-      <InkSurface ink={ink} onChange={setInk} tool={tool} mouseDraws={mouseDraws} className="bible-text">
+      <InkSurface ink={ink} onChange={setInk} tool={tool} mouseDraws={mouseDraws} onPen={onPen} className="bible-text">
         {book.state === 'loading' ? (
           <p className="quiet">Opening {name}…</p>
         ) : book.state === 'failed' ? (
@@ -305,13 +344,17 @@ function BibleText({ passage, chapter, name, book, marks, onMark, ink, setInk, t
   );
 }
 
-function Notes({ study, update, ink, setInk, tool, mouseDraws }: {
+function Notes({ study, update, ink, setInk, mode, setMode, ...pen }: {
   study: Study;
   update: (id: string, change: (s: Study) => Study) => void;
   ink: Ink | undefined;
   setInk: (ink: Ink) => void;
+  mode: 'write' | 'type';
+  setMode: (m: 'write' | 'type') => void;
   tool: Tool | 'eraser';
   mouseDraws: boolean;
+  fingerDraws: boolean;
+  onPen: () => void;
 }) {
   const page = useRef<HTMLTextAreaElement>(null);
   const body = study.notes.page ?? '';
@@ -325,28 +368,48 @@ function Notes({ study, update, ink, setInk, tool, mouseDraws }: {
   }, [body]);
   const earlier = SHEETS.filter((s) => s !== 'page' && study.notes[s]?.trim());
   const write = (sheet: Sheet, value: string) => update(study.id, (s) => ({ ...s, notes: { ...s.notes, [sheet]: value } }));
+  // While writing, the typed text can be read but not edited. iPadOS turns Pencil
+  // writing over any editable field into typed text (Scribble), and a finger tap on
+  // one raises the keyboard; a read-only page gives neither anything to act on. The
+  // same elements stay in place, so typed text and ink keep their positions.
+  const writing = mode === 'write';
+  const inkLow = inkBottom(ink);
 
   return (
     <div className="notes-col">
-      <InkSurface ink={ink} onChange={setInk} tool={tool} mouseDraws={mouseDraws} className="pad-surface">
+      <div className="notes-mode" role="group" aria-label="Notes by">
+        <button type="button" aria-pressed={writing} onClick={() => setMode('write')}>Write</button>
+        <button type="button" aria-pressed={!writing} onClick={() => setMode('type')}>Type</button>
+      </div>
+      <InkSurface
+        ink={ink} onChange={setInk} {...pen} className={`pad-surface${writing ? ' writing' : ''}`}
+        // Room to keep writing below the lowest line written, about ten lines' worth.
+        style={inkLow ? { minHeight: inkLow + 320 } : undefined}
+      >
         <input
           className="pad-title"
           value={study.title}
           placeholder="Title"
+          readOnly={writing}
+          tabIndex={writing ? -1 : undefined}
           onChange={(e) => update(study.id, (s) => ({ ...s, title: e.target.value }))}
           aria-label="Title"
         />
         <p className="pad-meta">
           {study.passage} · {new Date(study.created).toLocaleDateString(undefined, { dateStyle: 'long' })}
         </p>
-        <textarea ref={page} className="pad-lines" value={body} onChange={(e) => write('page', e.target.value)} aria-label="Notes" placeholder="Write here…" rows={18} />
+        <textarea
+          ref={page} className="pad-lines" value={body} onChange={(e) => write('page', e.target.value)} aria-label="Notes" rows={18}
+          readOnly={writing} tabIndex={writing ? -1 : undefined}
+          placeholder={writing ? (ink?.strokes.length ? '' : 'Write here with a Pencil, a finger or the mouse…') : 'Type here…'}
+        />
         {/* The same writing for print: a text box cannot break across pages, so the
             browser moved it whole to the next sheet and stranded the title. */}
         <div className="pad-lines print-text" aria-hidden="true">{body}</div>
         {earlier.map((s) => (
           <Fragment key={s}>
             <p className="pad-heading">{OLD_SHEETS[s]}</p>
-            <textarea className="pad-lines short" value={study.notes[s]} onChange={(e) => write(s, e.target.value)} aria-label={OLD_SHEETS[s]} />
+            <textarea className="pad-lines short" value={study.notes[s]} onChange={(e) => write(s, e.target.value)} aria-label={OLD_SHEETS[s]} readOnly={writing} tabIndex={writing ? -1 : undefined} />
           </Fragment>
         ))}
       </InkSurface>

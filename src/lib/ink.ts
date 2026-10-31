@@ -1,5 +1,5 @@
 import { getStroke } from 'perfect-freehand';
-import type { Stroke, Tool } from './studies';
+import type { Ink, Stroke, Tool } from './studies';
 
 /** How each tool lays down ink. Colors are skin variables, so a skin can recolor but not repurpose them. */
 export const TOOL_STYLE: Record<Tool, { size: number; thinning: number; color: string; opacity: number; label: string }> = {
@@ -68,3 +68,10 @@ export const compact = (x: number, y: number, p: number): [number, number, numbe
   Math.round(y * 2) / 2,
   Math.round(p * 100) / 100,
 ];
+
+/** The lowest point written on a surface, in its own pixels; 0 when there is no ink. */
+export function inkBottom(ink: Ink | undefined): number {
+  let bottom = 0;
+  for (const s of ink?.strokes ?? []) for (let i = 1; i < s.pts.length; i += 3) bottom = Math.max(bottom, s.pts[i]);
+  return bottom;
+}
