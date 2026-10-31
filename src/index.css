@@ -156,7 +156,7 @@ button:disabled { opacity: 0.35; cursor: default; }
  */
 .workspace {
   position: fixed; inset: 0; display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--notes-pane-w); grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) var(--notes-size, var(--notes-pane-w)); grid-template-rows: minmax(0, 1fr);
   grid-template-areas: 'bible notes';
 }
 .pane {
@@ -173,6 +173,37 @@ button:disabled { opacity: 0.35; cursor: default; }
   /* Only the faintest tooth: enough to feel like paper, not enough to look aged. */
   background-color: var(--paper); background-image: var(--paper-wear), var(--paper-texture), var(--paper-tooth);
 }
+/* The notepad's edge, straddling the line between it and the Bible: a wide, invisible
+   grip with a short visible bar in its middle while hovered or held. */
+.notes-edge {
+  grid-area: notes; justify-self: start; align-self: stretch; z-index: 6; width: 22px; margin-left: -11px;
+  cursor: col-resize; touch-action: none; position: relative;
+}
+.notes-edge::after {
+  content: ''; position: absolute; inset: 40% 9px; border-radius: 3px;
+  background: color-mix(in srgb, var(--slip-ink) 25%, transparent); opacity: 0; transition: opacity 0.15s;
+}
+.notes-edge:hover::after, .notes-edge:focus-visible::after, .notes-edge:active::after { opacity: 1; }
+.notes-edge:focus-visible { outline: none; }
+.notes-edge:focus-visible::after { background: var(--accent); }
+/* Folding: the notepad becomes a strip; the Bible has the room. */
+.workspace.notes-folded { --notes-size: 44px; }
+.notes-pane { position: relative; }
+.notes-fold {
+  position: sticky; top: 10px; float: left; z-index: 3; margin: -34px 0 0 8px; min-width: 36px; height: 36px; border: 0; border-radius: 10px;
+  background: none; color: var(--muted); font-size: 1.3rem; cursor: pointer;
+}
+.notes-fold:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); }
+.workspace.notes-folded .notes-pane { overflow: hidden; padding: 0; }
+.workspace.notes-folded .notes-pane > :not(.notes-unfold) { display: none; }
+.notes-unfold {
+  all: unset; box-sizing: border-box; display: grid; place-items: center; width: 100%; height: 100%; cursor: pointer;
+  color: var(--muted); font-weight: 600; letter-spacing: 0.08em;
+}
+.notes-unfold span { writing-mode: vertical-rl; }
+.notes-unfold:hover { color: var(--slip-ink); background: color-mix(in srgb, var(--slip-ink) 5%, transparent); }
+.notes-unfold:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+
 /* A phone's tabs: Bible | each reference | Notes. Elsewhere every pane is on screen. */
 .pane-switch { grid-area: switch; display: flex; justify-content: center; padding: 10px 12px 0; min-width: 0; }
 .pane-tabs {
@@ -216,7 +247,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 .ref-choices button:focus-visible { outline: 2px solid var(--accent); }
 .ref-choices button[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 12%, transparent); font-weight: 600; }
 .ref-scope { color: var(--muted); font-size: 0.86em; font-weight: 400; }
-.tb-compare svg, .tb-lock svg { width: 20px; height: 20px; fill: none; stroke: var(--slip-ink); stroke-width: 1.7; }
+.tb-compare svg, .tb-lock svg, .tb-unfold svg { width: 20px; height: 20px; fill: none; stroke: var(--slip-ink); stroke-width: 1.7; }
 .tb-lock svg { stroke-linecap: round; }
 .picker-note { margin: 0 6px 8px; font-size: 0.86rem; }
 
@@ -481,16 +512,23 @@ button:disabled { opacity: 0.35; cursor: default; }
 /* With references open: Bible | references | notes. The notes give up some width, never
    their place; the Bible keeps a little more than the references, being the text. */
 .workspace.has-ref {
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) clamp(340px, 30vw, 520px);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) var(--notes-size, clamp(340px, 30vw, 520px));
   grid-template-areas: 'bible refs notes';
 }
 
 /* An upright iPad: the notes under the Bible, both always in view. */
 @media (max-width: 999px) {
-  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 42%; grid-template-areas: 'bible' 'notes'; }
+  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) var(--notes-height, 42%); grid-template-areas: 'bible' 'notes'; }
   .notes-pane { border-left: 0; border-top: 1px solid var(--hairline); padding-top: 18px; }
   /* With references: the Bible and references side by side above, the notes below. */
-  .workspace.has-ref { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 42%; grid-template-areas: 'bible refs' 'notes notes'; }
+  .workspace.has-ref { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) var(--notes-height, 42%); grid-template-areas: 'bible refs' 'notes notes'; }
+  /* Folded below the Bible, the notepad goes entirely; the toolbar brings it back. */
+  .workspace.notes-folded { --notes-height: 0px; }
+  .workspace.notes-folded .notes-pane { display: none; }
+  .notes-edge.upright { justify-self: stretch; align-self: start; width: auto; height: 22px; margin: -11px 0 0; cursor: row-resize; }
+  .notes-edge.upright::after { inset: 9px 30%; }
+  .notes-fold { top: 10px; }
+  .notes-unfold span { writing-mode: horizontal-tb; }
 }
 /* A phone: one pane at a time, a tap apart. */
 @media (max-width: 599px) {
@@ -516,7 +554,11 @@ button:disabled { opacity: 0.35; cursor: default; }
 @media print {
   html, body { background: #fff !important; }
   /* The reference is for the desk, not the printout: it is someone else's text. */
-  .menu-button, .toolbar, .chapter-picker, .verse-panel, .pane-switch, .refs, .alert, .ink-note, .notes-mode { display: none !important; }
+  .menu-button, .toolbar, .chapter-picker, .verse-panel, .pane-switch, .refs, .alert, .ink-note, .notes-mode,
+  .notes-edge, .notes-fold, .notes-unfold { display: none !important; }
+  /* Folded on screen is not folded on paper: "Print my notes" prints them. */
+  .workspace.notes-folded .notes-pane { overflow: visible; }
+  .workspace.notes-folded .notes-pane > .fit { display: block !important; }
   /* Paper sets its own width; the screen's scaling (set inline) would shrink the print. */
   .fit { height: auto !important; }
   .fit > .fit-inner { position: static !important; width: auto !important; transform: none !important; }

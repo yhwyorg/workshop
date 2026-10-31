@@ -19,7 +19,13 @@ export default defineConfig({
   // the Tilt loop ran. Four is fast and steady here; CI runners have two cores.
   workers: process.env.CI ? 2 : 4,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // One retry here too. Playwright's WebKit on Windows now and then stops drawing a page
+  // altogether: a trace on 2026-10-31 showed the last screen frame 24ms before a click
+  // and none in the 30s after, so the click waited for a frame that never came. Seen
+  // only on WebKit devices on this machine, never Chromium, never in CI's Linux WebKit;
+  // the same tests pass alone. A retried test is still reported "flaky": read that
+  // count, don't treat it as a pass.
+  retries: 1,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
   use: { baseURL, trace: 'retain-on-failure', screenshot: 'only-on-failure' },
   // The workshop is made for an iPad, so most projects run WebKit, the engine iPad
