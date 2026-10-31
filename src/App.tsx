@@ -209,7 +209,7 @@ export default function App() {
         ) : route.view === 'about' ? (
           <About />
         ) : !store ? null : route.view === 'study' ? (
-          <StudyView study={current} lengths={lengths} update={update} openMenu={() => setMenu(true)} pens={pensOf(skin)} />
+          <StudyView study={current} lengths={lengths} update={update} openMenu={() => setMenu(true)} pens={pensOf(skin)} penArt={skin.pen} />
         ) : route.view === 'studies' ? (
           <Studies studies={studies} />
         ) : route.view === 'new' ? (

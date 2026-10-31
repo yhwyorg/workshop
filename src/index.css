@@ -473,6 +473,27 @@ button:disabled { opacity: 0.35; cursor: default; }
 .nib-pencil { background: var(--muted); }
 .nib-highlighter { width: 18px; height: 12px; background: #f2d43a; border-radius: 3px; }
 .nib-eraser { width: 18px; height: 12px; background: var(--slip); border: 1.5px solid var(--muted); border-radius: 3px; }
+/*
+ * The paper style's own pen in the toolbar (PenArt.tsx): a photograph of Darrell's own
+ * pen, cut out, at three times this size for sharp screens. It rests on the glass with
+ * a soft shadow beneath, not an outline.
+ */
+.pen-art { position: relative; display: inline-block; width: 236px; height: 44px; flex: none; }
+.pen-photo {
+  position: absolute; left: 0; top: 50%; width: 236px; height: auto; transform: translateY(-50%);
+  pointer-events: none; user-select: none; -webkit-user-select: none;
+  filter: drop-shadow(0 2.5px 2px rgba(0, 0, 0, 0.3));
+}
+/* The three-colour pen: the photograph, then its colours as ink dots. */
+.pen-art.bic { width: auto; display: inline-flex; align-items: center; gap: 2px; }
+.pen-art.bic .pen-photo { position: static; transform: none; margin-right: 6px; }
+/* The fountain pen is one button: the pen. */
+.fountain { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 10px; }
+.fountain:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+.fountain[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 9%, transparent); }
+/* Narrower screens: a slightly smaller pen, so the toolbar still fits an upright iPad. */
+@media (max-width: 999px) { .pen-photo { width: 200px; } .pen-art.fountain { width: 200px; } }
+
 /* An Apple Pencil always writes and a finger never does, so a touch device has no
    use for "Read"; it exists for the mouse. */
 @media (pointer: coarse) { .tb-read { display: none; } }

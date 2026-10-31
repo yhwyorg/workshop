@@ -3,6 +3,7 @@ import { BY_CODE } from '../lib/books';
 import { inkBottom, TOOL_STYLE } from '../lib/ink';
 import { coversExactly, LAYOUT, loadLayout, spoken, type ChapterLayout, type Part } from '../lib/layout';
 import { useMediaQuery } from '../lib/media';
+import type { PenKind } from '../lib/skin';
 import { keepReferences, MAX_REFERENCES, savedReferences, type Reference } from '../lib/reference';
 import { chapterOf, key, parsePassage, verseOf, type Lengths, type Passage, type VerseKey } from '../lib/refs';
 import { href } from '../lib/route';
@@ -10,6 +11,7 @@ import { nextMark, SHEETS, type Ink, type Mark, type Sheet, type Study, type Too
 import { loadBook } from '../lib/text';
 import Fit from './Fit';
 import NotesEdge from './NotesEdge';
+import { FountainPen, MultiColourPen } from './PenArt';
 import InkSurface from './Ink';
 import { ReferencePicker, ReferenceText } from './Reference';
 import { useScrollLock } from './scrollLock';
@@ -86,13 +88,15 @@ const NOTES_W = 460;
  * times. The Bible and the notes shrink as a whole to make room, so the ink on them
  * stays on its words. On a phone every pane is a tab.
  */
-export default function StudyView({ study, lengths, update, openMenu, pens = PENS }: {
+export default function StudyView({ study, lengths, update, openMenu, pens = PENS, penArt = 'none' }: {
   study: Study | undefined;
   lengths: Lengths | null;
   update: (id: string, change: (s: Study) => Study) => void;
   openMenu: () => void;
   /** The pens the paper style offers, in order (see pensOf). */
   pens?: Tool[];
+  /** The paper style's pen, drawn in the toolbar instead of its colours' dots. */
+  penArt?: PenKind;
 }) {
   const passage: Passage | null = (() => {
     if (!study || !lengths) return null;
@@ -245,6 +249,8 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
   // writes only on a laptop with a pen chosen: on an iPad the default tool is the pen,
   // and a trackpad (Magic Keyboard) would otherwise draw instead of tapping words.
   const tool = choice === 'read' ? 'pen' : choice;
+  // Pens the drawn pen stands for, so they aren't shown twice.
+  const drawn: Tool[] = penArt === 'multi-colour' ? pens.filter((t) => t !== 'highlighter') : penArt === 'fountain' ? ['pen'] : [];
   const onPen = () => {
     if (pencil) return;
     setPencil(true);
@@ -392,7 +398,11 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
             {/* A pointer arrow; a bare triangle read as a "play" button. */}
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 9-6.2 1.4 3.6 6.6-2.7 1.4-3.6-6.6L5 19z" /></svg>
           </button>
-          {pens.map((t) => (
+          {/* The paper style's own pen, drawn (PenArt); its colours are its sliders, so
+              only the other tools are left as dots beside it. */}
+          {penArt === 'multi-colour' && <MultiColourPen colours={pens.filter((t) => t !== 'highlighter')} choice={choice} choose={setChoice} />}
+          {penArt === 'fountain' && <FountainPen pressed={choice === 'pen'} choose={() => setChoice('pen')} />}
+          {pens.filter((t) => !drawn.includes(t)).map((t) => (
             <button key={t} type="button" className="tb-icon" aria-pressed={choice === t} onClick={() => setChoice(t)} aria-label={TOOL_STYLE[t].label} title={TOOL_STYLE[t].label}>
               <span className={`nib nib-${t}`} aria-hidden="true" />
             </button>

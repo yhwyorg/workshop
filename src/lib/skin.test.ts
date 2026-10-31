@@ -93,6 +93,18 @@ describe('notebook paper: dotted rules, a solid line every so often, a header bo
     expect(old.ok && pensOf(old.skin)).toEqual(['pen', 'red', 'highlighter']);
   });
 
+  it('draws only a pen it knows, and a multi-colour pen only with more than two colours', () => {
+    const withPen = (pen: unknown, ink: Record<string, unknown> = {}) => ({ ...notebook({}, ink), pen });
+    expect(errorsOf(withPen('<img src=x>')).join(' ')).toMatch(/pen must be one of/);
+    expect(errorsOf(withPen('multi-colour')).join(' ')).toMatch(/needs ink.black or ink.green/);
+    // Darrell's: blue, black and red.
+    const ok = validateSkin(withPen('multi-colour', { black: '#1b1c1e' }));
+    expect(ok.ok && ok.skin.pen).toBe('multi-colour');
+    expect(ok.ok && pensOf(ok.skin)).toEqual(['pen', 'black', 'red', 'highlighter']);
+    const none = validateSkin(legal);
+    expect(none.ok && none.skin.pen).toBe('none');
+  });
+
   it('refuses a second pen colour that is not a colour, or can hardly be seen', () => {
     expect(errorsOf(notebook({}, { red: 'red; x: url(https://example.com)' })).join(' ')).toMatch(/ink.red must be a color/);
     expect(errorsOf(notebook({}, { red: '#fafafa' })).join(' ')).toMatch(/ink.red on paper.color/);
