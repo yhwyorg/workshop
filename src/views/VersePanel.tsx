@@ -166,12 +166,18 @@ function Note({ reference: r, at }: { reference: Reference; at: At }) {
   // Notes are keyed by the verse they begin at; the one covering this verse is the last
   // to begin at or before it.
   // Asked and empty is said, not left blank: blank would read as "never asked".
-  const note = loaded.state === 'commentary' ? loaded.notes.filter((n) => n.verse <= at.verse).at(-1) : undefined;
+  // Before a commentary's first note, its introduction to the chapter is what it says
+  // of the verse (JFB on Psalm 22:1); it is labelled as being on the chapter.
+  const covering = loaded.state === 'commentary' ? loaded.notes.filter((n) => n.verse <= at.verse).at(-1) : undefined;
+  const intro = loaded.state === 'commentary' && loaded.introduction?.length ? { verse: 0, paragraphs: loaded.introduction } : undefined;
+  const note = covering ?? intro;
   if (!note) return <p className="quiet vp-none">Nothing from {r.name} on this verse.</p>;
   const paragraphs = all ? note.paragraphs : note.paragraphs.slice(0, 2);
   return (
     <article className="vp-note">
-      <p className="vp-who">{r.name} · {note.verse === at.verse ? 'on' : 'from'} verse {note.verse}</p>
+      <p className="vp-who">
+        {r.name} · {note.verse === 0 ? 'on the chapter' : `${note.verse === at.verse ? 'on' : 'from'} verse ${note.verse}`}
+      </p>
       {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
       {note.paragraphs.length > 2 && !all && (
         <button type="button" className="quiet-link" onClick={() => setAll(true)}>Read the whole note</button>
