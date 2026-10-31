@@ -15,14 +15,37 @@ paper. Everything else is in one corner menu. Companion to
 Both pages keep one width (548px) whether an iPad is upright or sideways, as
 paper does, so ink written in one orientation stays on its words in the other.
 
-## Run it
+## Develop
 
 ```sh
 npm install
-npm run dev      # http://localhost:5173
-npm test
+tilt up          # then open http://localhost:10350
+```
+
+The `Tiltfile` runs the whole loop on this machine, with no cluster: the dev server
+(http://localhost:5180, instant reload), typecheck, lint, unit tests, the production
+build served as static files the way GitHub Pages serves it (http://localhost:4180),
+and the browser tests against that build. Each re-runs when its files change.
+
+Measured on the development machine: a change shows in the dev server in ~0.2s;
+typecheck 10s, lint 8s, unit tests 8s, build 7s; the browser tests ~110s.
+
+Without Tilt:
+
+```sh
+npm run dev      # dev server
+npm test         # unit tests (Vitest)
+npm run e2e      # browser tests (Playwright; builds and serves the site itself)
 npm run build    # static site in dist/
 ```
+
+The browser tests (`e2e/`) run in WebKit, the engine iPad Safari uses, at iPad
+sizes upright and sideways and at phone size, and in Chromium on a desktop. Every
+test fails if the page logs a console error. Install the browsers once with
+`npx playwright install webkit chromium`.
+
+Changes go through pull requests; CI runs the unit and browser tests on each, and
+merging into `main` publishes.
 
 ## Where studies live
 

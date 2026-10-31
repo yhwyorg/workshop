@@ -26,7 +26,12 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, className,
   const box = useRef<HTMLDivElement>(null);
   const [live, setLive] = useState<{ stroke: Stroke; real: boolean } | null>(null);
   const [width, setWidth] = useState(0);
-  const drew = useRef(0);
+  // Set when a pen gesture starts; its trailing click is swallowed, so a Pencil tap on a
+  // word writes rather than also marking it. Cleared by the next pointerdown of any kind,
+  // so a gesture that ends without a click cannot swallow a later finger tap. This was a
+  // 350 ms window after the pen lifted; under load the click arrived later than that and
+  // the word was marked anyway (seen in the browser tests run in parallel).
+  const penGesture = useRef(false);
   const current = useRef<{ stroke: Stroke; real: boolean; erased: boolean; strokes: Stroke[] } | null>(null);
 
   useEffect(() => {
@@ -54,7 +59,9 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, className,
 
   const down = (e: React.PointerEvent) => {
     const pen = e.pointerType === 'pen';
+    penGesture.current = false;
     if (!pen && !(e.pointerType === 'mouse' && mouseDraws && e.button === 0)) return;
+    penGesture.current = true;
     e.preventDefault();
     e.stopPropagation();
     try {
@@ -102,7 +109,6 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, className,
     const c = current.current;
     if (!c) return;
     current.current = null;
-    drew.current = performance.now();
     setLive(null);
     if (tool !== 'eraser') onChange({ width: ink?.width ?? width, strokes: [...c.strokes, c.stroke] });
   };
@@ -119,7 +125,8 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, className,
       onPointerCancel={up}
       onClickCapture={(e) => {
         // A pen tap on a word is writing, not marking it.
-        if (performance.now() - drew.current < 350) {
+        if (penGesture.current) {
+          penGesture.current = false;
           e.preventDefault();
           e.stopPropagation();
         }

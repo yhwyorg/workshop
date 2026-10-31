@@ -4,3 +4,6 @@ dist
 .DS_Store
 # Browser verification screenshots
 .playwright-mcp
+# Playwright test output
+test-results/
+playwright-report/
