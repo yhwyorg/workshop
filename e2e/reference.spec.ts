@@ -30,7 +30,8 @@ function forgiveFailedLoads(errors: string[]) {
 }
 
 async function compareWith(page: Page, name: string) {
-  await page.getByRole('button', { name: 'Compare' }).click();
+  // Exact: every word of Scripture is a button too, and Romans 8:18 has "compared".
+  await page.getByRole('button', { name: 'Compare', exact: true }).click();
   await page.getByRole('button', { name: new RegExp(`^${name}`) }).click();
 }
 
@@ -55,6 +56,15 @@ test.describe('the reference pane', () => {
     await page.getByRole('button', { name: 'Next chapter' }).click();
     await show(page, 'BSB');
     await expect(page.getByRole('region', { name: 'Berean Standard Bible' })).toContainText('I have told you these things so that you will not fall away.');
+  });
+
+  test('Compare is found in a chapter that says "compared" (Romans 8:18)', async ({ page, errors }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'Romans', 8);
+    await compareWith(page, 'King James Version');
+    // No recording of Romans 8, so the API stand-in answers 404: the button is what's tested.
+    await expect(page.getByRole('region', { name: 'King James Version' })).toContainText('Nothing from King James Version on Romans 8');
+    forgiveFailedLoads(errors);
   });
 
   test('a commentary shows its notes under the verses they begin at', async ({ page }) => {
