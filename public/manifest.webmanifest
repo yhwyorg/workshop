@@ -1,0 +1,15 @@
+{
+  "name": "Sermon Workshop",
+  "short_name": "Workshop",
+  "description": "The Bible beside a legal pad, for working on a passage.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbf9f4",
+  "theme_color": "#fbf9f4",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

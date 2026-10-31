@@ -15,7 +15,8 @@ export const SKIN_FORMAT = 'workshop-skin/1';
 
 /** Font choices a skin may name. Each maps to a stack of fonts already on readers' devices. */
 export const FONTS = {
-  book: "'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif",
+  // Literata ships with the site (OFL), so Scripture is set the same on every device.
+  book: "'Literata Variable', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif",
   hand: "'Noteworthy', 'Bradley Hand', 'Segoe Print', 'Comic Sans MS', cursive",
   typewriter: "'American Typewriter', 'Courier Prime', 'Courier New', monospace",
   clean: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",

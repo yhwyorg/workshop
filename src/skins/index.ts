@@ -1,14 +1,14 @@
-import chalkboard from './chalkboard.json';
-import legalPad from './legal-pad.json';
-import nightStudy from './night-study.json';
-import studyDesk from './study-desk.json';
+import daylight from './daylight.json';
+import night from './night.json';
+import sepia from './sepia.json';
 
-/** Built-in skins, by id. Each must pass validateSkin like any other (skin.test.ts checks). */
-export const BUILT_IN: Record<string, unknown> = {
-  'legal-pad': legalPad,
-  'study-desk': studyDesk,
-  'night-study': nightStudy,
-  chalkboard,
-};
+/** Built-in paper styles, by id. Each must pass validateSkin like any other (skin.test.ts checks). */
+export const BUILT_IN: Record<string, unknown> = { daylight, night, sepia };
 
-export const DEFAULT_SKIN = 'legal-pad';
+/**
+ * "auto" is not a style of its own: it is Daylight or Night, following the device's
+ * light or dark setting, and the default until someone chooses a style.
+ */
+export const AUTO = 'auto';
+export const LIGHT = 'daylight';
+export const DARK = 'night';

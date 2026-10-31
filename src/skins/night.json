@@ -1,0 +1,12 @@
+{
+  "format": "workshop-skin/1",
+  "name": "Night",
+  "author": "Workshop",
+  "description": "Low light for early mornings and late Saturdays.",
+  "dark": true,
+  "desk": { "color": "#e9e4d8", "grain": 0 },
+  "paper": { "color": "#22201b", "lines": "#34312a", "margin": "#5a2f2b", "spacing": 32, "grain": 0.15, "wear": 0 },
+  "ink": { "text": "#ece6da", "notes": "#a9c4ec", "accent": "#f0a48f", "muted": "#a69e90" },
+  "slip": { "color": "#171614", "ink": "#e8e2d6" },
+  "fonts": { "scripture": "book", "notes": "clean", "ui": "clean" }
+}

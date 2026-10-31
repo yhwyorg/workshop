@@ -4,7 +4,7 @@ import { href, useRoute } from './lib/route';
 import { applySkin, validateSkin, type Skin } from './lib/skin';
 import { exportStudy, importStudy, load, newStudy, save, STORE_KEY, type KV, type Loaded, type Store, type Study } from './lib/studies';
 import { loadLengths } from './lib/text';
-import { BUILT_IN, DEFAULT_SKIN } from './skins';
+import { AUTO, BUILT_IN, DARK, LIGHT } from './skins';
 import About from './views/About';
 import Contents from './views/Contents';
 import Paper from './views/Paper';
@@ -70,9 +70,13 @@ export default function App() {
   const [lengths, setLengths] = useState<Lengths | null>(null);
   const [textError, setTextError] = useState<string | null>(null);
   const [skins, setSkins] = useState<SkinEntry[]>(readSkins);
-  const [skinId, setSkinId] = useState<string>(() => remembered(SKIN_KEY) ?? DEFAULT_SKIN);
+  const [skinId, setSkinId] = useState<string>(() => remembered(SKIN_KEY) ?? AUTO);
   const [menu, setMenu] = useState(false);
-  const skin = (skins.find((s) => s.id === skinId) ?? skins.find((s) => s.id === DEFAULT_SKIN)!).skin;
+  const prefersDark = useMediaQuery('(prefers-color-scheme: dark)');
+  // "Automatic", or a style chosen before this one existed (the first version's names),
+  // follows the device: Daylight by day, Night in dark mode.
+  const chosen = skinId === AUTO ? undefined : skins.find((s) => s.id === skinId);
+  const skin = (chosen ?? skins.find((s) => s.id === (prefersDark ? DARK : LIGHT))!).skin;
 
   useEffect(() => applySkin(skin), [skin]);
   useEffect(() => {
@@ -139,9 +143,12 @@ export default function App() {
 
   return (
     <>
-      <button type="button" className="menu-button" onClick={() => setMenu(true)} aria-label="Menu" aria-expanded={menu}>
-        <span aria-hidden="true" />
-      </button>
+      {/* On a study the toolbar carries the menu; every other page has this one button. */}
+      {route.view !== 'study' && (
+        <button type="button" className="menu-button" onClick={() => setMenu(true)} aria-label="Menu" aria-expanded={menu}>
+          <span aria-hidden="true" />
+        </button>
+      )}
       {menu && (
         <Menu
           current={current}
@@ -167,11 +174,11 @@ export default function App() {
 
       <main>
         {route.view === 'paper' ? (
-          <Paper skins={skins} current={skinId} choose={chooseSkin} custom={customSkins} saveCustom={saveCustom} />
+          <Paper skins={skins} current={chosen ? skinId : AUTO} choose={chooseSkin} custom={customSkins} saveCustom={saveCustom} />
         ) : route.view === 'about' ? (
           <About />
         ) : !store ? null : route.view === 'study' ? (
-          <StudyView study={current} lengths={lengths} update={update} />
+          <StudyView study={current} lengths={lengths} update={update} openMenu={() => setMenu(true)} />
         ) : route.view === 'studies' ? (
           <Studies studies={studies} />
         ) : route.view === 'new' ? (
@@ -250,6 +257,17 @@ function Menu({ current, close, add, remove }: {
       </nav>
     </div>
   );
+}
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => matchMedia(query).matches);
+  useEffect(() => {
+    const m = matchMedia(query);
+    const on = () => setMatches(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, [query]);
+  return matches;
 }
 
 /** Keeps unreadable data under another key, so starting fresh never destroys it. */

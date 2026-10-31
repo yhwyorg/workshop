@@ -53,6 +53,15 @@ export async function draw(page: Page, selector: string, kind: 'pen' | 'touch', 
   );
 }
 
+/**
+ * Shows the notes or the Bible. On a phone they are a tap apart (tabs); elsewhere both
+ * are always on screen and there is nothing to tap.
+ */
+export async function show(page: Page, pane: 'Bible' | 'Notes') {
+  const tab = page.getByRole('tab', { name: pane });
+  if (await tab.isVisible()) await tab.click();
+}
+
 /** The saved studies, read straight from storage: proves a change was kept, not just drawn. */
 export async function savedStudies(page: Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem('workshop:store') ?? '{"pads":[]}').pads);

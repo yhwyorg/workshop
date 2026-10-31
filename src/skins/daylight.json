@@ -1,0 +1,12 @@
+{
+  "format": "workshop-skin/1",
+  "name": "Daylight",
+  "author": "Workshop",
+  "description": "Warm white pages, with notes on soft legal-pad yellow.",
+  "dark": false,
+  "desk": { "color": "#2b2924", "grain": 0 },
+  "paper": { "color": "#fcf4d4", "lines": "#cfdcea", "margin": "#efb9ae", "spacing": 32, "grain": 0.25, "wear": 0 },
+  "ink": { "text": "#26231d", "notes": "#1e3a8a", "accent": "#b42318", "muted": "#6b6457" },
+  "slip": { "color": "#fbf9f4", "ink": "#22201b" },
+  "fonts": { "scripture": "book", "notes": "clean", "ui": "clean" }
+}

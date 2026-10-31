@@ -1,4 +1,4 @@
-import { beginStudy, draw, expect, savedStudies, test } from './fixtures';
+import { beginStudy, draw, expect, savedStudies, show, test } from './fixtures';
 
 test.describe('beginning', () => {
   test('a first visit opens the Bible to choose where to begin', async ({ page }) => {
@@ -44,14 +44,16 @@ test.describe('working on a passage', () => {
     const vine = page.locator('.word').filter({ hasText: /^vine,$/ }).first();
     await vine.click();
     await vine.click();
+    await show(page, 'Notes');
     await page.getByLabel('Title').fill('Remain in me');
-    await page.getByLabel('Notes').fill('Remain: eleven times.');
+    await page.getByLabel('Notes', { exact: true }).fill('Remain: eleven times.');
     await expect.poll(async () => (await savedStudies(page))[0]?.notes?.page).toBe('Remain: eleven times.');
 
     await page.reload();
     await expect(vine).toHaveAttribute('aria-label', 'vine,, circled');
+    await show(page, 'Notes');
     await expect(page.getByLabel('Title')).toHaveValue('Remain in me');
-    await expect(page.getByLabel('Notes')).toHaveValue('Remain: eleven times.');
+    await expect(page.getByLabel('Notes', { exact: true })).toHaveValue('Remain: eleven times.');
   });
 
   test('an Apple Pencil writes; a finger does not', async ({ page }) => {

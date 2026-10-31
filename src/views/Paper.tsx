@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SkinEntry } from '../App';
 import { SKIN_PROMPT, skinStyle, validateSkin, type Skin } from '../lib/skin';
+import { AUTO } from '../skins';
 
 export default function Paper({ skins, current, choose, custom, saveCustom }: {
   skins: SkinEntry[];
@@ -51,6 +52,9 @@ export default function Paper({ skins, current, choose, custom, saveCustom }: {
         <p>Choose the paper and desk you like to work on.</p>
       </section>
 
+      <button type="button" className={`auto-card${current === AUTO ? ' current' : ''}`} aria-pressed={current === AUTO} onClick={() => choose(AUTO)}>
+        <strong>Automatic</strong> <span>Daylight, or Night when your device is in dark mode</span>
+      </button>
       <div className="skin-grid">
         {skins.map((s) => (
           <button
@@ -62,7 +66,6 @@ export default function Paper({ skins, current, choose, custom, saveCustom }: {
             aria-pressed={s.id === current}
           >
             <span className="skin-preview">
-              <span className="binding" />
               <span className="skin-sheet">
                 <span className="skin-scripture">In the beginning was the Word…</span>
                 <span className="skin-note">remain → 11×!</span>
