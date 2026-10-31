@@ -12,9 +12,11 @@
 # Windows runs local_resource commands through cmd.exe; npm and npx work there and
 # in bash alike, so every command below is a plain npm/npx call.
 
+# scripts/deps.mjs installs only when package-lock.json's contents change; it explains
+# the two Windows/Tilt traps (npm ci and a self-retriggering npm install) it avoids.
 local_resource(
     'deps',
-    cmd='npm ci',
+    cmd='node scripts/deps.mjs',
     deps=['package-lock.json'],
     labels=['setup'],
 )
