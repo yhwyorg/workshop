@@ -98,6 +98,21 @@ Study Notes (CC BY-SA 4.0), whose credit is shown under the notes and on About.
   `curl -o e2e/recorded/BSB_JHN_15.json https://bible.helloao.org/api/BSB/JHN/15.json`.
 - Opening a reference tells that site which chapter is being read. Nothing written is sent.
 
+### Cross-references (tap a verse number)
+
+OpenBible.info's reader-voted cross-references (CC BY), built into `public/xref/` (one
+file per book, the 12 strongest per verse, 3.2 MB in all):
+
+```sh
+curl -L -o cross-references.zip https://a.openbible.info/data/cross-references.zip
+unzip cross-references.zip
+npm run xref -- cross_references.txt
+```
+
+The build stops on an unknown book id and drops references to verses the WEB doesn't
+have (128 of 344,799 on 2026-10-31). A unit test reads every reference in all 66 books.
+They are related passages, not a list of quotations, and the page says so.
+
 ## Hosting
 
 Changes arrive as pull requests; `.github/workflows/ci.yml` runs the tests, lint and

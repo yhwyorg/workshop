@@ -11,6 +11,7 @@ import Fit from './Fit';
 import InkSurface from './Ink';
 import { ReferencePicker, ReferenceText } from './Reference';
 import { useScrollLock } from './scrollLock';
+import VersePanel from './VersePanel';
 
 /** Headings for the first version's sheets, shown only where something was written on them. */
 const OLD_SHEETS: Partial<Record<Sheet, string>> = {
@@ -100,6 +101,8 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   const [bibleScale, setBibleScale] = useState(1);
   const [jump, setJump] = useState(false);
   const [comparing, setComparing] = useState(false);
+  // The verse opened by tapping its number, if any.
+  const [opened, setOpened] = useState<number | null>(null);
   const [notesMode, setNotesMode] = useState<'write' | 'type'>(() => (pref.get(NOTES_MODE_KEY) === 'type' ? 'type' : 'write'));
   const [pencil, setPencil] = useState(() => pref.get(PENCIL_KEY) === '1');
   const phone = useMediaQuery('(max-width: 599px)');
@@ -132,9 +135,10 @@ export default function StudyView({ study, lengths, update, openMenu }: {
     };
   }, [passage?.book]); // eslint-disable-line react-hooks/exhaustive-deps -- the book is all that matters
 
-  // A new chapter starts at its top, as turning a page does.
+  // A new chapter starts at its top, as turning a page does, and closes an opened verse.
   useEffect(() => {
     biblePane.current?.scrollTo({ top: 0 });
+    setOpened(null);
   }, [chapter]);
 
   if (!study) {
@@ -196,6 +200,7 @@ export default function StudyView({ study, lengths, update, openMenu }: {
     }
     setComparing(false);
   };
+  const closeVerse = () => setOpened(null);
   const lock = () => {
     setLocked(!locked);
     pref.set(LOCK_KEY, locked ? '0' : '1');
@@ -236,7 +241,11 @@ export default function StudyView({ study, lengths, update, openMenu }: {
 
       <section ref={biblePane} className={`pane bible-pane${front === 'bible' ? ' front' : ''}`} role="region" aria-label="Bible">
         <Fit width={BIBLE_W} gutter={20} on={!phone} onScale={setBibleScale}>
-          <BibleText key={ch} passage={passage} chapter={ch} name={name} book={book} marks={study.marks} onMark={mark} ink={study.ink?.[`bible:${ch}`]} setInk={setInk(`bible:${ch}`)} {...pen} />
+          <BibleText
+            key={ch} passage={passage} chapter={ch} name={name} book={book} marks={study.marks} onMark={mark}
+            onVerse={(v) => { setOpened(v); setComparing(false); setJump(false); }}
+            ink={study.ink?.[`bible:${ch}`]} setInk={setInk(`bible:${ch}`)} {...pen}
+          />
         </Fit>
       </section>
 
@@ -262,6 +271,10 @@ export default function StudyView({ study, lengths, update, openMenu }: {
       </div>
 
       {comparing && <ReferencePicker open={references} choose={compare} />}
+
+      {opened !== null && lengths && (
+        <VersePanel start={{ book: passage.book, chapter: ch, verse: opened }} lengths={lengths} open={references} close={closeVerse} />
+      )}
 
       {jump && (
         <div className="chapter-picker" role="dialog" aria-label={`Chapters of ${name}`}>
@@ -326,13 +339,15 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   );
 }
 
-function BibleText({ passage, chapter, name, book, marks, onMark, ink, setInk, tool, mouseDraws, onPen }: {
+function BibleText({ passage, chapter, name, book, marks, onMark, onVerse, ink, setInk, tool, mouseDraws, onPen }: {
   passage: Passage;
   chapter: number;
   name: string;
   book: Book;
   marks: Record<string, Mark>;
   onMark: (k: VerseKey, i: number) => void;
+  /** Opens a verse: its cross-references and commentary. */
+  onVerse: (verse: number) => void;
   ink: Ink | undefined;
   setInk: (ink: Ink) => void;
   tool: Tool | 'eraser';
@@ -357,13 +372,18 @@ function BibleText({ passage, chapter, name, book, marks, onMark, ink, setInk, t
           <p className="error" role="alert">{name} couldn’t be opened: {book.message}</p>
         ) : (
           <p className={`scripture${wholeChapters ? '' : ' partial'}${ink?.strokes.length ? ' inked' : ''}`}>
-            <span className="drop" aria-hidden="true">{chapter}</span>
+            {/* The chapter numeral stands where verse 1's number would, and opens it. */}
+            <button type="button" className="drop" onClick={() => onVerse(1)} aria-label="Verse 1">{chapter}</button>
             {book.text[chapter - 1].map((text, vi) => {
               const k = key(chapter, vi + 1);
               let i = -1;
               return (
                 <span key={k} className={inStudy(k) ? 'v in-study' : 'v'} data-verse={vi + 1}>
-                  {vi > 0 && <sup className="vn">{vi + 1}</sup>}
+                  {vi > 0 && (
+                    <sup className="vn">
+                      <button type="button" className="vn-open" onClick={() => onVerse(vi + 1)} aria-label={`Verse ${vi + 1}`}>{vi + 1}</button>
+                    </sup>
+                  )}
                   {text.split(/(\s+)/).map((tok, ti) => {
                     if (/^\s*$/.test(tok)) return <Fragment key={ti}>{tok}</Fragment>;
                     i++;

@@ -36,7 +36,9 @@ export default function Fit({ width, gutter, max = 1, on, onScale, children }: {
     const measure = () => {
       const room = outer.current!.clientWidth;
       const scale = Math.max(0.1, Math.min(max, (room - gutter * 2) / width));
-      setFit({ scale, room, height: inner.current!.offsetHeight * scale });
+      const height = inner.current!.offsetHeight * scale;
+      // Sub-pixel changes are ignored, so a measurement can't feed back into itself.
+      setFit((f) => (Math.abs(f.scale - scale) < 0.001 && Math.abs(f.room - room) < 0.5 && Math.abs(f.height - height) < 0.5 ? f : { scale, room, height }));
     };
     measure();
     const ro = new ResizeObserver(measure);

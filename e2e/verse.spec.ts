@@ -1,0 +1,104 @@
+import type { Page } from '@playwright/test';
+import { beginStudy, draw, expect, forgiveFailedLoads, recordedApi, savedStudies, test } from './fixtures';
+
+/**
+ * Opening a verse: tap its number to see where else Scripture speaks to it (its Old
+ * Testament roots first, for a New Testament verse) and what the commentaries say on
+ * it. Cross-references are OpenBible.info's, served from this site; commentaries come
+ * from the API, replaced here by recordings.
+ */
+const openVerse = async (page: Page, verse: number) => page.getByRole('button', { name: `Verse ${verse}`, exact: true }).click();
+const panel = (page: Page, name: string) => page.getByRole('dialog', { name, exact: true });
+
+test.describe('opening a verse', () => {
+  test('tapping a verse number shows the verse and where else Scripture speaks to it', async ({ page }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'John', 15);
+    await openVerse(page, 5);
+    const verse = panel(page, 'John 15:5');
+    await expect(verse).toContainText('I am the vine. You are the branches.');
+    // Its strongest cross-reference, with that verse's own words beside it.
+    await expect(verse).toContainText('Philippians 4:13');
+    await expect(verse).toContainText('I can do all things through Christ who strengthens me.');
+  });
+
+  test('for a New Testament verse, its Old Testament roots come first', async ({ page }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'John', 15);
+    await openVerse(page, 1);
+    const roots = panel(page, 'John 15:1').getByRole('region', { name: 'In the Old Testament' });
+    await expect(roots).toContainText('Jeremiah 2:21');
+    await expect(roots).toContainText('Yet I had planted you a noble vine');
+    await expect(roots).toContainText('Isaiah 5:1–7');
+  });
+
+  test('for an Old Testament verse, where the New Testament takes it up', async ({ page }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'Psalms', 22);
+    await openVerse(page, 1);
+    const later = panel(page, 'Psalms 22:1').getByRole('region', { name: 'In the New Testament' });
+    await expect(later).toContainText('Mark 15:34');
+    await expect(later).toContainText('Matthew 27:46');
+  });
+
+  test('a cross-reference can be followed, and the way back is kept', async ({ page }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'John', 15);
+    await openVerse(page, 1);
+    await panel(page, 'John 15:1').getByRole('button', { name: 'Jeremiah 2:21', exact: true }).click();
+    const jer = panel(page, 'Jeremiah 2:21');
+    await expect(jer).toContainText('Yet I had planted you a noble vine');
+    await expect(jer.getByRole('region', { name: 'In the Old Testament' })).not.toBeEmpty();
+    await jer.getByRole('button', { name: 'Back to John 15:1' }).click();
+    await expect(panel(page, 'John 15:1')).toContainText('I am the true vine');
+  });
+
+  test('the commentaries each give the note that covers the verse', async ({ page }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'John', 15);
+    await openVerse(page, 5);
+    const said = panel(page, 'John 15:5').getByRole('region', { name: 'From the commentaries' });
+    // Tyndale's note begins at verse 4, JFB's at 5, Henry's at 1: each says where.
+    await expect(said).toContainText('The term remain (Greek menō)');
+    await expect(said).toContainText('Tyndale Open Study Notes · from verse 4');
+    await expect(said).toContainText('without me--apart');
+    await expect(said).toContainText('Jamieson, Fausset & Brown · on verse 5');
+    await expect(said).toContainText('Matthew Henry · from verse 1');
+  });
+
+  test('when the commentaries cannot be reached it says so, and the cross-references still show', async ({ page, errors }) => {
+    await recordedApi(page, { down: true });
+    await beginStudy(page, 'John', 15);
+    await openVerse(page, 5);
+    const verse = panel(page, 'John 15:5');
+    await expect(verse.getByRole('region', { name: 'From the commentaries' }).getByRole('alert').first()).toContainText('couldn’t be reached');
+    await expect(verse).toContainText('Philippians 4:13');
+    forgiveFailedLoads(errors);
+  });
+
+  test('it closes with the close button or Escape, and nothing is marked or written', async ({ page }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'John', 15);
+    await openVerse(page, 5);
+    await page.getByRole('button', { name: 'Close John 15:5' }).click();
+    await expect(panel(page, 'John 15:5')).toHaveCount(0);
+    await openVerse(page, 6);
+    await page.keyboard.press('Escape');
+    await expect(panel(page, 'John 15:6')).toHaveCount(0);
+    const s = (await savedStudies(page))[0];
+    expect(s.marks).toEqual({});
+    expect(s.ink?.['bible:15']).toBeUndefined();
+  });
+
+  test('a Pencil on a verse number writes; it does not open the verse', async ({ page }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'John', 15);
+    const n = (await page.getByRole('button', { name: 'Verse 5', exact: true }).boundingBox())!;
+    const s = (await page.locator('.bible-text').boundingBox())!;
+    const at: [number, number] = [n.x - s.x + n.width / 2, n.y - s.y + n.height / 2];
+    await draw(page, '.bible-text', 'pen', at, [at[0] + 1, at[1] + 1]);
+    await page.getByRole('button', { name: 'Verse 5', exact: true }).dispatchEvent('click');
+    await expect.poll(async () => (await savedStudies(page))[0]?.ink?.['bible:15']?.strokes?.length).toBe(1);
+    await expect(panel(page, 'John 15:5')).toHaveCount(0);
+  });
+});

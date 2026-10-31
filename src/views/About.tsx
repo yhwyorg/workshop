@@ -39,6 +39,12 @@ export default function About() {
         except the Tyndale Open Study Notes (© Tyndale House Publishers, CC BY-SA 4.0). Opening one asks that site for the
         chapter you are reading, so it can see which chapter that is; nothing you write goes with it.
       </p>
+      <p>
+        Tap a verse number to open the verse. Its cross-references come from{' '}
+        <a href="https://www.openbible.info/labs/cross-references/">OpenBible.info</a> (CC BY): passages readers have linked
+        to it, ranked by their votes. They are kept on this site, so opening a verse asks nothing of anyone; the
+        commentaries beside them come from the Free Use Bible API, as above.
+      </p>
     </article>
   );
 }
