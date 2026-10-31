@@ -19,3 +19,25 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run build
+
+  # The browser tests: WebKit (iPad Safari's engine) at iPad and phone sizes, and
+  # Chromium on a desktop, against the production build.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps webkit chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
