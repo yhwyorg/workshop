@@ -4,7 +4,7 @@ import { href, useRoute } from './lib/route';
 import { applySkin, validateSkin, type Skin } from './lib/skin';
 import { exportStudy, importStudy, load, newStudy, save, STORE_KEY, type KV, type Loaded, type Store, type Study } from './lib/studies';
 import { loadLengths } from './lib/text';
-import { AUTO, BUILT_IN, DARK, LIGHT } from './skins';
+import { AUTO, BUILT_IN, DARK, DEFAULT, LIGHT } from './skins';
 import About from './views/About';
 import Contents from './views/Contents';
 import Paper from './views/Paper';
@@ -70,12 +70,12 @@ export default function App() {
   const [lengths, setLengths] = useState<Lengths | null>(null);
   const [textError, setTextError] = useState<string | null>(null);
   const [skins, setSkins] = useState<SkinEntry[]>(readSkins);
-  const [skinId, setSkinId] = useState<string>(() => remembered(SKIN_KEY) ?? AUTO);
+  const [skinId, setSkinId] = useState<string>(() => remembered(SKIN_KEY) ?? DEFAULT);
   const [menu, setMenu] = useState(false);
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)');
-  // "Automatic", or a style chosen before this one existed (the first version's names),
-  // follows the device: Daylight by day, Night in dark mode.
-  const chosen = skinId === AUTO ? undefined : skins.find((s) => s.id === skinId);
+  // A style chosen before this one existed (the first version's names) falls back to
+  // the default; "Automatic" follows the device: Daylight by day, Night in dark mode.
+  const chosen = skinId === AUTO ? undefined : (skins.find((s) => s.id === skinId) ?? skins.find((s) => s.id === DEFAULT));
   const skin = (chosen ?? skins.find((s) => s.id === (prefersDark ? DARK : LIGHT))!).skin;
 
   useEffect(() => applySkin(skin), [skin]);
@@ -174,7 +174,7 @@ export default function App() {
 
       <main>
         {route.view === 'paper' ? (
-          <Paper skins={skins} current={chosen ? skinId : AUTO} choose={chooseSkin} custom={customSkins} saveCustom={saveCustom} />
+          <Paper skins={skins} current={chosen ? chosen.id : AUTO} choose={chooseSkin} custom={customSkins} saveCustom={saveCustom} />
         ) : route.view === 'about' ? (
           <About />
         ) : !store ? null : route.view === 'study' ? (

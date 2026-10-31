@@ -7,8 +7,10 @@ export const BUILT_IN: Record<string, unknown> = { daylight, night, sepia };
 
 /**
  * "auto" is not a style of its own: it is Daylight or Night, following the device's
- * light or dark setting, and the default until someone chooses a style.
+ * light or dark setting. Offered on the Paper page; not the default.
  */
 export const AUTO = 'auto';
+/** Where everyone starts until they choose otherwise: the family's choice. */
+export const DEFAULT = 'sepia';
 export const LIGHT = 'daylight';
 export const DARK = 'night';
