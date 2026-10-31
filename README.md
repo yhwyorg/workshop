@@ -116,6 +116,35 @@ one. A unit test checks that every word of all 66 books is set exactly once. Ink
 records the setting it was written on; ink from before chapters were set this way
 keeps the old continuous setting (and the page says so).
 
+### The original languages (in the verse panel)
+
+`public/original/<BOOK>/<chapter>.json` (37 MB) holds every verse's Greek (SBLGNT) or
+Hebrew (WLC) word by word, with gloss, grammar and Strong's number, from MACULA;
+`public/strongs/` (2.5 MB) the Strong's dictionaries. Built by
+`npm run original -- greek.tsv hebrew.tsv strongs-greek-dictionary.js strongs-hebrew-dictionary.js`
+(sources and licences at the top of `scripts/build-original.mjs`).
+
+What was measured and decided, so it isn't undone by accident:
+
+- **Not matched to the English.** The WEB's USFM tags English words with Strong's
+  numbers, but on words whose Greek or Hebrew is certain the tags were right 92.8%
+  of the time in the New Testament and 61% in the Old ("God" was never tagged Elohim
+  in Genesis, Psalms and Isaiah; "earth" was tagged "heavens" 67 times in 89). The
+  original is shown as itself instead.
+- **Hebrew numbering.** 139 Hebrew chapters number their verses differently from
+  English Bibles (psalm titles, Malachi 4, Joel 2-3). They are marked and offer no
+  verse, rather than the wrong one.
+- **Verses missing from the Greek** each carry a reason, and the build stops on one
+  without: "later" (in later manuscripts only: John 5:4, Mark 9:44), "joined"
+  (numbered with the verse before: 2 Corinthians 13:14) or "moved" (Romans 14:24-26
+  is the Greek's 16:25-27).
+- **Extended Hebrew Strong's numbers** (169,976 parts, mostly prefixes and endings)
+  use their base entry only when it is the same word; stripping the letter gave "and"
+  as "to break in upon" and "the" as Dothan.
+- MACULA's semantic-domain columns (`ln`, `domain`, `sdbh` and kin) are used with UBS's
+  permission only, and are never read.
+- About a fifth of Hebrew parts have no transliteration in the source and show none.
+
 ### Cross-references (tap a verse number)
 
 OpenBible.info's reader-voted cross-references (CC BY), built into `public/xref/` (one
