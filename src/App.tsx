@@ -21,6 +21,8 @@ const kv: KV = {
 const SKIN_KEY = 'workshop:skin';
 const CUSTOM_KEY = 'workshop:skins';
 const LAST_KEY = 'workshop:last';
+/** "on" when the words of Jesus are shown in red. */
+const RED_KEY = 'workshop:red-letter';
 
 export interface SkinEntry {
   id: string;
@@ -73,6 +75,10 @@ export default function App() {
   const [skins, setSkins] = useState<SkinEntry[]>(readSkins);
   const [skinId, setSkinId] = useState<string>(() => remembered(SKIN_KEY) ?? DEFAULT);
   const [menu, setMenu] = useState(false);
+  const [redLetter, setRedLetter] = useState(() => remembered(RED_KEY) === 'on');
+  useEffect(() => {
+    document.documentElement.dataset.redLetter = redLetter ? 'on' : 'off';
+  }, [redLetter]);
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)');
   // A style chosen before this one existed (the first version's names) falls back to
   // the default; "Automatic" follows the device: Daylight by day, Night in dark mode.
@@ -172,6 +178,11 @@ export default function App() {
       {menu && (
         <Menu
           current={current}
+          redLetter={redLetter}
+          setRedLetter={(on) => {
+            setRedLetter(on);
+            remember(RED_KEY, on ? 'on' : 'off');
+          }}
           close={() => setMenu(false)}
           add={add}
           remove={(id) => {
@@ -209,8 +220,10 @@ export default function App() {
   );
 }
 
-function Menu({ current, close, add, remove }: {
+function Menu({ current, redLetter, setRedLetter, close, add, remove }: {
   current: Study | undefined;
+  redLetter: boolean;
+  setRedLetter: (on: boolean) => void;
   close: () => void;
   add: (s: Study) => void;
   remove: (id: string) => void;
@@ -268,6 +281,10 @@ function Menu({ current, close, add, remove }: {
             </button>
           </>
         )}
+        <hr />
+        <button type="button" aria-pressed={redLetter} onClick={() => setRedLetter(!redLetter)} className="menu-toggle">
+          Words of Jesus in red
+        </button>
         <hr />
         <button type="button" onClick={() => file.current?.click()}>Open a saved copy…</button>
         <input ref={file} type="file" accept=".json,application/json" hidden onChange={(e) => openCopy(e.target.files?.[0])} />

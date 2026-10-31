@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { BY_CODE } from '../lib/books';
 import { inkBottom, TOOL_STYLE } from '../lib/ink';
+import { coversExactly, LAYOUT, loadLayout, spoken, type ChapterLayout, type Part } from '../lib/layout';
 import { useMediaQuery } from '../lib/media';
 import { keepReferences, MAX_REFERENCES, savedReferences, type Reference } from '../lib/reference';
 import { chapterOf, key, parsePassage, verseOf, type Lengths, type Passage, type VerseKey } from '../lib/refs';
@@ -91,6 +92,8 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   })();
   const [chapter, setChapter] = useState<number | null>(null);
   const [book, setBook] = useState<Book>({ state: 'loading' });
+  // How the book is set: paragraphs, poetry. Null while loading; "failed" sets it plain.
+  const [layout, setLayout] = useState<ChapterLayout[] | 'failed' | null>(null);
   // On a laptop the mouse starts as a pointer; on an iPad the Pencil starts as a pen.
   const [choice, setChoice] = useState<Choice>(() => (fine() ? 'read' : 'pen'));
   // Which pane a phone shows: "bible", "notes" or a reference's id.
@@ -129,6 +132,11 @@ export default function StudyView({ study, lengths, update, openMenu }: {
     loadBook(passage.book).then(
       (text) => live && setBook({ state: 'ready', text }),
       (e: Error) => live && setBook({ state: 'failed', message: e.message }),
+    );
+    setLayout(null);
+    loadLayout(passage.book).then(
+      (l) => live && setLayout(l),
+      () => live && setLayout('failed'),
     );
     return () => {
       live = false;
@@ -243,6 +251,7 @@ export default function StudyView({ study, lengths, update, openMenu }: {
         <Fit width={BIBLE_W} gutter={20} on={!phone} onScale={setBibleScale}>
           <BibleText
             key={ch} passage={passage} chapter={ch} name={name} book={book} marks={study.marks} onMark={mark}
+            layout={layout === 'failed' ? 'failed' : layout?.[ch - 1] ?? null}
             onVerse={(v) => { setOpened(v); setComparing(false); setJump(false); }}
             ink={study.ink?.[`bible:${ch}`]} setInk={setInk(`bible:${ch}`)} {...pen}
           />
@@ -339,11 +348,13 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   );
 }
 
-function BibleText({ passage, chapter, name, book, marks, onMark, onVerse, ink, setInk, tool, mouseDraws, onPen }: {
+function BibleText({ passage, chapter, name, book, layout, marks, onMark, onVerse, ink, setInk, tool, mouseDraws, onPen }: {
   passage: Passage;
   chapter: number;
   name: string;
   book: Book;
+  /** This chapter's setting; null while it loads, "failed" if it couldn't be. */
+  layout: ChapterLayout | 'failed' | null;
   marks: Record<string, Mark>;
   onMark: (k: VerseKey, i: number) => void;
   /** Opens a verse: its cross-references and commentary. */
@@ -362,45 +373,87 @@ function BibleText({ passage, chapter, name, book, marks, onMark, onVerse, ink, 
     verseOf(passage.start) === 1 &&
     verseOf(passage.end) === book.text[chapterOf(passage.end) - 1].length;
 
+  const verses = book.state === 'ready' ? book.text[chapter - 1] : [];
+  // Ink written before chapters were set in paragraphs (no layout recorded) keeps the
+  // continuous setting it was written on: a paragraph break moves every word after it,
+  // and the ink would float over the wrong words. Erasing it all frees the chapter.
+  const oldInk = !!ink?.strokes.length && ink.layout !== LAYOUT;
+  const set = layout && layout !== 'failed' && !oldInk && coversExactly(layout, verses) ? layout : null;
+  // Ink written from here on records the setting it was written on.
+  const write = (next: Ink) => setInk(set ? { ...next, layout: LAYOUT } : next);
+
+  const word = (k: VerseKey, at: number, tok: string, wj: boolean) => {
+    const m = marks[`${k}:${at}`];
+    return (
+      <button
+        type="button"
+        className={`word${m ? ` mark-${m}` : ''}${wj ? ' wj' : ''}`}
+        onClick={() => onMark(k, at)}
+        aria-pressed={!!m}
+        aria-label={m ? `${tok}, ${MARK_WORD[m]}` : undefined}
+      >
+        {tok}
+      </button>
+    );
+  };
+  const number = (v: number) =>
+    v === 1 ? (
+      // The chapter numeral stands where verse 1's number would, and opens it.
+      <button type="button" className="drop" onClick={() => onVerse(1)} aria-label="Verse 1">{chapter}</button>
+    ) : (
+      <sup className="vn">
+        <button type="button" className="vn-open" onClick={() => onVerse(v)} aria-label={`Verse ${v}`}>{v}</button>
+      </sup>
+    );
+  // One verse's words from..to, as set in a paragraph or line. Only a verse's first part
+  // carries its number and "v" (and data-verse, for scrolling together).
+  const part = ([v, from, to]: Part) => {
+    const k = key(chapter, v);
+    const ws = verses[v - 1].split(/\s+/).filter(Boolean);
+    return (
+      <span key={`${v}:${from}`} className={`v-part${from === 0 ? ' v' : ''}${inStudy(k) ? ' in-study' : ''}`} data-verse={from === 0 ? v : undefined}>
+        {from === 0 && number(v)}
+        {ws.slice(from, to).map((tok, j) => (
+          <Fragment key={j}>
+            {word(k, from + j, tok, !!set && spoken(set, v, from + j))}{' '}
+          </Fragment>
+        ))}
+      </span>
+    );
+  };
+
   return (
     <div className="bible-col">
       <p className="book-name">{name}</p>
-      <InkSurface ink={ink} onChange={setInk} tool={tool} mouseDraws={mouseDraws} onPen={onPen} className="bible-text">
-        {book.state === 'loading' ? (
+      <InkSurface ink={ink} onChange={write} tool={tool} mouseDraws={mouseDraws} onPen={onPen} className="bible-text">
+        {book.state === 'loading' || (layout === null && !oldInk) ? (
           <p className="quiet">Opening {name}…</p>
         ) : book.state === 'failed' ? (
           <p className="error" role="alert">{name} couldn’t be opened: {book.message}</p>
+        ) : set ? (
+          <div className={`scripture typeset${wholeChapters ? '' : ' partial'}${ink?.strokes.length ? ' inked' : ''}`}>
+            {set.blocks.map((b, bi) =>
+              b[0] === 'h' ? (
+                <p key={bi} className={`blk-h blk-h-${b[1]}`}>{b[2] as string}</p>
+              ) : b[0] === 'b' ? (
+                <div key={bi} className="blk-b" aria-hidden="true" />
+              ) : (
+                <p key={bi} className={`blk blk-${b[0]}`}>{(b[1] as Part[]).map(part)}</p>
+              ),
+            )}
+          </div>
         ) : (
           <p className={`scripture${wholeChapters ? '' : ' partial'}${ink?.strokes.length ? ' inked' : ''}`}>
-            {/* The chapter numeral stands where verse 1's number would, and opens it. */}
-            <button type="button" className="drop" onClick={() => onVerse(1)} aria-label="Verse 1">{chapter}</button>
-            {book.text[chapter - 1].map((text, vi) => {
+            {verses.map((text, vi) => {
               const k = key(chapter, vi + 1);
               let i = -1;
               return (
-                <span key={k} className={inStudy(k) ? 'v in-study' : 'v'} data-verse={vi + 1}>
-                  {vi > 0 && (
-                    <sup className="vn">
-                      <button type="button" className="vn-open" onClick={() => onVerse(vi + 1)} aria-label={`Verse ${vi + 1}`}>{vi + 1}</button>
-                    </sup>
-                  )}
+                <span key={k} className={`v-part v${inStudy(k) ? ' in-study' : ''}`} data-verse={vi + 1}>
+                  {number(vi + 1)}
                   {text.split(/(\s+)/).map((tok, ti) => {
                     if (/^\s*$/.test(tok)) return <Fragment key={ti}>{tok}</Fragment>;
                     i++;
-                    const at = i;
-                    const m = marks[`${k}:${at}`];
-                    return (
-                      <button
-                        key={ti}
-                        type="button"
-                        className={`word${m ? ` mark-${m}` : ''}`}
-                        onClick={() => onMark(k, at)}
-                        aria-pressed={!!m}
-                        aria-label={m ? `${tok}, ${MARK_WORD[m]}` : undefined}
-                      >
-                        {tok}
-                      </button>
-                    );
+                    return <Fragment key={ti}>{word(k, i, tok, false)}</Fragment>;
                   })}{' '}
                 </span>
               );
@@ -408,6 +461,8 @@ function BibleText({ passage, chapter, name, book, marks, onMark, onVerse, ink, 
           </p>
         )}
       </InkSurface>
+      {oldInk && <p className="translation set-note">Set as it was when you wrote on it</p>}
+      {layout === 'failed' && !oldInk && <p className="translation set-note">Set without paragraphs: the layout couldn’t be loaded</p>}
       <p className="translation">World English Bible</p>
     </div>
   );

@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "text": "node scripts/build-text.mjs",
     "xref": "node scripts/build-xref.mjs",
+    "layout": "node scripts/build-layout.mjs",
     "e2e": "playwright test"
   },
   "dependencies": {

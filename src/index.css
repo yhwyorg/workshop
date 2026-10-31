@@ -223,9 +223,44 @@ button:disabled { opacity: 0.35; cursor: default; }
 .bible-col { width: min(var(--bible-w), 100% - 40px); margin: 0 auto; animation: turn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .book-name { text-align: center; margin: 0 0 22px; font-family: var(--font-scripture); font-variant: small-caps; letter-spacing: 0.14em; color: var(--muted); }
 .scripture { font-family: var(--font-scripture); font-optical-sizing: auto; font-size: 1.2rem; line-height: 1.75; margin: 0; color: var(--slip-ink); }
+
+/*
+ * Set as a printed Bible: prose in paragraphs with a first-line indent and no space
+ * between them; poetry in lines, each hanging so a line that wraps is plainly a
+ * continuation; a psalm's title quiet above it. Lengths are in em so the setting
+ * scales with the text (and with Fit, which scales the whole column).
+ */
+.typeset .blk { margin: 0; }
+.typeset .blk-p, .typeset .blk-nb { text-indent: 1.5em; }
+.typeset .blk-p:first-child, .typeset .blk-h + .blk-p, .typeset .blk-b + .blk-p, .typeset .blk-d + .blk-p { text-indent: 0; }
+.typeset .blk-m { text-indent: 0; }
+.typeset .blk-pi { padding-left: 1.5em; }
+.typeset .blk-q1, .typeset .blk-q2, .typeset .blk-q3 { text-indent: -1.25em; }
+.typeset .blk-q1 { padding-left: 1.75em; }
+.typeset .blk-q2 { padding-left: 3em; }
+.typeset .blk-q3 { padding-left: 4.25em; }
+/* A new stanza begins after a blank; a run of poetry after prose is set apart too. */
+.typeset .blk-b { height: 0.75em; }
+.typeset :is(.blk-p, .blk-m, .blk-pi) + :is(.blk-q1, .blk-q2) { margin-top: 0.6em; }
+.typeset :is(.blk-q1, .blk-q2, .blk-q3) + :is(.blk-p, .blk-m) { margin-top: 0.6em; }
+.typeset .blk-d { font-style: italic; color: var(--muted); font-size: 0.92em; margin-bottom: 0.4em; }
+.typeset .blk-qa, .typeset .blk-sp { font-variant: small-caps; letter-spacing: 0.06em; color: var(--muted); margin-top: 0.6em; }
+.typeset .blk-h { margin: 1.2em 0 0.4em; text-align: center; font-variant: small-caps; letter-spacing: 0.12em; color: var(--muted); font-size: 0.86em; }
+.typeset .blk-h-sp { text-align: left; margin: 0.8em 0 0.1em; letter-spacing: 0.06em; }
+.typeset .blk-h:first-child { margin-top: 0; }
+/* A chapter that opens with a psalm's title or with poetry has its numeral on a line of
+   its own, as printed Psalters do: floated beside a hanging line, the line's negative
+   indent pulled its first letters under the numeral ("23" over "The LORD"). */
+.typeset > :first-child:is(.blk-d, .blk-q1, .blk-q2) .drop { float: none; display: block; line-height: 1; margin: 0 0 0.15em; }
+
+/* The words of Jesus, red when the reader chooses (Menu). */
+:root[data-red-letter='on'] .word.wj { color: var(--accent); }
+/* An on/off choice in the menu: a check that shows which. */
+.menu-toggle::after { content: ''; display: inline-block; width: 0.9em; margin-left: 0.5em; }
+.menu-toggle[aria-pressed='true']::after { content: '✓'; color: var(--accent); }
 /* The chapter number set large at the start, as printed Bibles do. */
 .drop {
-  float: left; font: inherit; font-size: 3.5em; font-weight: 350; line-height: 0.82; margin: 0.06em 0.14em 0 0; padding: 0;
+  float: left; font: inherit; text-indent: 0; font-size: 3.5em; font-weight: 350; line-height: 0.82; margin: 0.06em 0.14em 0 0; padding: 0;
   border: 0; background: none; color: var(--accent); cursor: pointer;
 }
 .vn { font-family: var(--font-ui); font-size: 0.58em; font-weight: 600; color: var(--muted); margin: 0 2px 0 1px; vertical-align: super; line-height: 0; }
@@ -234,7 +269,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 /* line-height: the number sits in a superscript with none, which left the button 0px
    tall: tappable through its hit area, but "not visible" to anything that checks. Its
    own line-height moves no line of the chapter (measured), so ink is unaffected. */
-.vn-open { all: unset; line-height: 1; position: relative; cursor: pointer; border-radius: 4px; }
+.vn-open { all: unset; line-height: 1; text-indent: 0; position: relative; cursor: pointer; border-radius: 4px; }
 .vn-open::after { content: ''; position: absolute; inset: -12px -7px; }
 .vn-open:hover, .drop:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .vn-open:focus-visible, .drop:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -268,11 +303,13 @@ button:disabled { opacity: 0.35; cursor: default; }
 .vp-who { font-family: var(--font-ui) !important; font-size: 0.8rem; font-weight: 650; color: var(--accent); }
 .vp-credit { margin: 6px 0 0; font-size: 0.76rem; color: var(--muted); }
 /* A study of a few verses keeps the rest of the chapter for context, set back. */
-.scripture.partial .v:not(.in-study) { opacity: 0.45; }
+.scripture.partial .v-part:not(.in-study) { opacity: 0.45; }
 .translation { margin: 28px 0 0; text-align: center; font-size: 0.78rem; color: var(--muted); letter-spacing: 0.04em; }
 
 /* Words are buttons, so a tap, a click or a keyboard can mark them. */
-.word { all: unset; cursor: pointer; border-radius: 3px; }
+/* text-indent 0: a button lays out its own text, so it took each paragraph's first-
+   line indent inside every word (words overlapped in poetry, spread apart in prose). */
+.word { all: unset; text-indent: 0; cursor: pointer; border-radius: 3px; }
 .word:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
 .word:focus-visible { outline: 2px solid var(--accent); }
 .word.mark-underline { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; }
@@ -462,7 +499,8 @@ button:disabled { opacity: 0.35; cursor: default; }
   .scripture { font-size: 11.5pt; line-height: 1.6; }
   /* Print just the study's verses, unless there is ink on the page: removing the
      context verses would move the text out from under what was written on it. */
-  .scripture.partial:not(.inked) .v:not(.in-study) { display: none; }
+  .scripture.partial:not(.inked) .v-part:not(.in-study) { display: none; }
+  .scripture.partial:not(.inked) .blk:not(:has(.in-study)) { display: none; }
   .word.mark-underline, .word.mark-circle, .word.mark-box, .ink, .pad-surface {
     print-color-adjust: exact; -webkit-print-color-adjust: exact;
   }
