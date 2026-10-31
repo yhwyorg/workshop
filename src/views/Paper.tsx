@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { SkinEntry } from '../App';
 import { SKIN_PROMPT, skinStyle, validateSkin, type Skin } from '../lib/skin';
 
-export default function Skins({ skins, current, choose, custom, saveCustom }: {
+export default function Paper({ skins, current, choose, custom, saveCustom }: {
   skins: SkinEntry[];
   current: string;
   choose: (id: string) => void;
@@ -15,7 +15,7 @@ export default function Skins({ skins, current, choose, custom, saveCustom }: {
   const file = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    document.title = 'Skins · Sermon Workshop';
+    document.title = 'Paper · Sermon Workshop';
   }, []);
 
   const add = (text: string) => {
@@ -46,13 +46,9 @@ export default function Skins({ skins, current, choose, custom, saveCustom }: {
 
   return (
     <div className="skins-page">
-      <section className="paper intro">
-        <h1 className="hand">Skins</h1>
-        <p>
-          A skin changes how the workshop looks: the paper, the ruling, the inks, the desk. Choose one below, or make your
-          own. Skins are plain descriptions, not code, so a skin from anyone is safe to try: it can change colors and
-          paper, and nothing else.
-        </p>
+      <section className="page-paper intro">
+        <h1>Paper</h1>
+        <p>Choose the paper and desk you like to work on.</p>
       </section>
 
       <div className="skin-grid">
@@ -73,41 +69,45 @@ export default function Skins({ skins, current, choose, custom, saveCustom }: {
               </span>
             </span>
             <span className="skin-name">{s.skin.name}</span>
-            {s.skin.author && <span className="skin-by">by {s.skin.author}</span>}
+            {s.custom && s.skin.author && <span className="skin-by">by {s.skin.author}</span>}
           </button>
         ))}
       </div>
 
-      <section className="paper make">
-        <h2 className="hand">Make your own with AI</h2>
+      <details className="page-paper make">
+        <summary>Make your own paper with AI</summary>
+        <p className="quiet small">
+          A paper style is a short description of colors, not a program, so one from anyone is safe to try: it can change
+          how the page looks and nothing else.
+        </p>
         <ol>
           <li>
-            <button type="button" onClick={copyPrompt}>{copied ? 'Copied' : 'Copy the skin prompt'}</button> and paste it into
+            <button type="button" onClick={copyPrompt}>{copied ? 'Copied' : 'Copy the instructions'}</button> and paste them into
             ChatGPT, Claude, Gemini or any AI.
           </li>
           <li>At the end, describe the look you want: “an old leather journal”, “Advent purple”, “my grandfather’s study”.</li>
-          <li>Paste what it writes back here, or open a skin file.</li>
+          <li>Paste what it writes back here.</li>
         </ol>
         <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={8} placeholder='{ "format": "workshop-skin/1", … }' spellCheck={false} />
         <p className="actions">
-          <button type="button" onClick={() => add(draft)} disabled={!draft.trim()}>Try this skin</button>
-          <button type="button" onClick={() => file.current?.click()}>Open a skin file…</button>
+          <button type="button" onClick={() => add(draft)} disabled={!draft.trim()}>Try it</button>
+          <button type="button" onClick={() => file.current?.click()}>Open a paper file…</button>
           <input ref={file} type="file" accept=".json,application/json" hidden onChange={async (e) => e.target.files?.[0] && add(await e.target.files[0].text())} />
           {custom.length > 0 && (
-            <button type="button" className="danger" onClick={() => confirm('Remove all the skins you added?') && saveCustom([])}>
-              Remove my skins
+            <button type="button" className="danger" onClick={() => confirm('Remove all the paper styles you added?') && saveCustom([])}>
+              Remove the ones I added
             </button>
           )}
         </p>
         {result?.added && <p className="ok" role="status">Added “{result.added}” and switched to it.</p>}
         {result && result.errors.length > 0 && (
           <div className="error" role="alert">
-            <p>This skin can’t be used yet. Tell your AI:</p>
+            <p>This can’t be used yet. Tell your AI:</p>
             <ul>{result.errors.map((e) => <li key={e}>{e}</li>)}</ul>
           </div>
         )}
-        {result && result.warnings.length > 0 && <ul className="muted small">{result.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
-      </section>
+        {result && result.warnings.length > 0 && <ul className="quiet small">{result.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
+      </details>
     </div>
   );
 }

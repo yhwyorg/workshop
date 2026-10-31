@@ -1,5 +1,5 @@
 import { getStroke } from 'perfect-freehand';
-import type { Stroke, Tool } from './pads';
+import type { Stroke, Tool } from './studies';
 
 /** How each tool lays down ink. Colors are skin variables, so a skin can recolor but not repurpose them. */
 export const TOOL_STYLE: Record<Tool, { size: number; thinning: number; color: string; opacity: number; label: string }> = {

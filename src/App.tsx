@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { load, save, STORE_KEY, type KV, type Loaded, type Pad, type Store } from './lib/pads';
 import type { Lengths } from './lib/refs';
 import { href, useRoute } from './lib/route';
 import { applySkin, validateSkin, type Skin } from './lib/skin';
+import { exportStudy, importStudy, load, newStudy, save, STORE_KEY, type KV, type Loaded, type Store, type Study } from './lib/studies';
 import { loadLengths } from './lib/text';
 import { BUILT_IN, DEFAULT_SKIN } from './skins';
 import About from './views/About';
-import Desk from './views/Desk';
-import PadView from './views/PadView';
-import Skins from './views/Skins';
+import Contents from './views/Contents';
+import Paper from './views/Paper';
+import Studies from './views/Studies';
+import StudyView from './views/StudyView';
 
 // localStorage itself can throw on access (blocked site data), not just on use.
 const kv: KV = {
@@ -18,6 +19,7 @@ const kv: KV = {
 
 const SKIN_KEY = 'workshop:skin';
 const CUSTOM_KEY = 'workshop:skins';
+const LAST_KEY = 'workshop:last';
 
 export interface SkinEntry {
   id: string;
@@ -25,7 +27,7 @@ export interface SkinEntry {
   custom: boolean;
 }
 
-/** Built-ins plus the reader's own skins, each re-checked: stored data is never trusted. */
+/** Built-ins plus the reader's own, each re-checked: stored data is never trusted. */
 function readSkins(): SkinEntry[] {
   const out: SkinEntry[] = [];
   for (const [id, raw] of Object.entries(BUILT_IN)) {
@@ -40,10 +42,25 @@ function readSkins(): SkinEntry[] {
       if (r.ok) out.push({ id: `custom-${i}`, skin: r.skin, custom: true });
     });
   } catch {
-    /* no saved skins, or storage blocked */
+    /* none saved, or storage blocked */
   }
   return out;
 }
+
+const remembered = (k: string) => {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+};
+const remember = (k: string, v: string) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {
+    /* lasts this visit only */
+  }
+};
 
 export default function App() {
   const route = useRoute();
@@ -53,23 +70,19 @@ export default function App() {
   const [lengths, setLengths] = useState<Lengths | null>(null);
   const [textError, setTextError] = useState<string | null>(null);
   const [skins, setSkins] = useState<SkinEntry[]>(readSkins);
-  const [skinId, setSkinId] = useState<string>(() => {
-    try {
-      return localStorage.getItem(SKIN_KEY) ?? DEFAULT_SKIN;
-    } catch {
-      return DEFAULT_SKIN;
-    }
-  });
+  const [skinId, setSkinId] = useState<string>(() => remembered(SKIN_KEY) ?? DEFAULT_SKIN);
+  const [menu, setMenu] = useState(false);
   const skin = (skins.find((s) => s.id === skinId) ?? skins.find((s) => s.id === DEFAULT_SKIN)!).skin;
 
   useEffect(() => applySkin(skin), [skin]);
-  // After "start a clean desk", the freshly loaded (empty) store becomes the one in use.
-  useEffect(() => {
-    if (loaded.state === 'ok' || loaded.state === 'empty') setStore((s) => s ?? loaded.store);
-  }, [loaded]);
   useEffect(() => {
     loadLengths().then(setLengths, (e: Error) => setTextError(e.message));
   }, []);
+  // After "start with a clean desk", the freshly loaded (empty) store becomes the one in use.
+  useEffect(() => {
+    if (loaded.state === 'ok' || loaded.state === 'empty') setStore((s) => s ?? loaded.store);
+  }, [loaded]);
+  useEffect(() => setMenu(false), [route]);
 
   // Saves shortly after the last change; a failure stays on screen until a save succeeds.
   const first = useRef(true);
@@ -90,85 +103,159 @@ export default function App() {
     return () => clearTimeout(t);
   }, [store]);
 
-  const updatePad = useCallback((id: string, change: (p: Pad) => Pad) => {
-    setStore((s) => s && { ...s, pads: s.pads.map((p) => (p.id === id ? { ...change(p), updated: new Date().toISOString() } : p)) });
+  const update = useCallback((id: string, change: (s: Study) => Study) => {
+    setStore((st) => st && { ...st, pads: st.pads.map((s) => (s.id === id ? { ...change(s), updated: new Date().toISOString() } : s)) });
   }, []);
-  const addPad = useCallback((pad: Pad) => setStore((s) => s && { ...s, pads: [pad, ...s.pads] }), []);
-  const removePad = useCallback((id: string) => setStore((s) => s && { ...s, pads: s.pads.filter((p) => p.id !== id) }), []);
+  const add = useCallback((s: Study) => {
+    setStore((st) => st && { ...st, pads: [s, ...st.pads] });
+    location.hash = href.study(s.id);
+  }, []);
+
+  const studies = useMemo(() => store?.pads ?? [], [store]);
+  const current = route.view === 'study' ? studies.find((s) => s.id === route.id) : undefined;
+  useEffect(() => {
+    if (current) remember(LAST_KEY, current.id);
+  }, [current]);
+
+  // Home is wherever work was left: the last study, else the list, else the Bible's contents.
+  useEffect(() => {
+    if (route.view !== 'home' || !store) return;
+    const last = remembered(LAST_KEY);
+    const target = studies.some((s) => s.id === last) ? href.study(last!) : studies.length ? href.studies() : href.new();
+    location.replace(target);
+  }, [route, store, studies]);
 
   const chooseSkin = (id: string) => {
     setSkinId(id);
-    try {
-      localStorage.setItem(SKIN_KEY, id);
-    } catch {
-      /* the choice lasts this visit only */
-    }
+    remember(SKIN_KEY, id);
   };
   const saveCustom = (list: Skin[]) => {
-    try {
-      localStorage.setItem(CUSTOM_KEY, JSON.stringify(list));
-    } catch {
-      /* kept for this visit only */
-    }
+    remember(CUSTOM_KEY, JSON.stringify(list));
     setSkins(readSkins());
   };
   const customSkins = useMemo(() => skins.filter((s) => s.custom).map((s) => s.skin), [skins]);
 
-  if (loaded.state === 'corrupt') {
-    return <Corrupt loaded={loaded} onReset={() => setLoaded(moveAside(loaded.raw))} />;
-  }
+  if (loaded.state === 'corrupt') return <Unreadable loaded={loaded} onReset={() => setLoaded(moveAside(loaded.raw))} />;
 
   return (
-    <div className="desk">
-      <header className="topbar">
-        <a href={href.desk()} className="brand">Sermon Workshop</a>
-        <nav>
-          <a href={href.desk()} aria-current={route.view === 'desk' ? 'page' : undefined}>Desk</a>
-          <a href={href.skins()} aria-current={route.view === 'skins' ? 'page' : undefined}>Skins</a>
-          <a href={href.about()} aria-current={route.view === 'about' ? 'page' : undefined}>About</a>
-        </nav>
-      </header>
+    <>
+      <button type="button" className="menu-button" onClick={() => setMenu(true)} aria-label="Menu" aria-expanded={menu}>
+        <span aria-hidden="true" />
+      </button>
+      {menu && (
+        <Menu
+          current={current}
+          close={() => setMenu(false)}
+          add={add}
+          remove={(id) => {
+            setStore((st) => st && { ...st, pads: st.pads.filter((s) => s.id !== id) });
+            location.hash = href.studies();
+          }}
+        />
+      )}
 
       {loaded.state === 'unavailable' && (
         <p className="alert" role="alert">
-          This browser isn’t letting the workshop save ({loaded.reason}). You can still work, but nothing will be kept
-          when this tab closes: use <strong>Export</strong> on a pad to keep a copy.
+          This browser isn’t letting the workshop save ({loaded.reason}). You can keep working, but nothing will be kept
+          when this tab closes. Use “Save a copy” in the menu to keep your study.
         </p>
       )}
       {saveError && (
-        <p className="alert" role="alert">
-          Your last change could not be saved ({saveError}). Export the pad you are working on to keep a copy.
-        </p>
+        <p className="alert" role="alert">Your last change couldn’t be saved ({saveError}). Use “Save a copy” in the menu to keep your study.</p>
       )}
-      {textError && (
-        <p className="alert" role="alert">The Bible text could not be loaded ({textError}). Try reloading the page.</p>
-      )}
+      {textError && <p className="alert" role="alert">The Bible couldn’t be loaded ({textError}). Try reloading the page.</p>}
 
       <main>
-        {route.view === 'skins' ? (
-          <Skins skins={skins} current={skinId} choose={chooseSkin} custom={customSkins} saveCustom={saveCustom} />
+        {route.view === 'paper' ? (
+          <Paper skins={skins} current={skinId} choose={chooseSkin} custom={customSkins} saveCustom={saveCustom} />
         ) : route.view === 'about' ? (
           <About />
-        ) : !store ? null : route.view === 'pad' ? (
-          <PadView
-            pad={store.pads.find((p) => p.id === route.id)}
-            lengths={lengths}
-            update={updatePad}
-            remove={removePad}
-          />
-        ) : (
-          <Desk pads={store.pads} lengths={lengths} add={addPad} />
-        )}
+        ) : !store ? null : route.view === 'study' ? (
+          <StudyView study={current} lengths={lengths} update={update} />
+        ) : route.view === 'studies' ? (
+          <Studies studies={studies} />
+        ) : route.view === 'new' ? (
+          <Contents lengths={lengths} open={(passage) => add(newStudy(passage, ''))} />
+        ) : null}
       </main>
+    </>
+  );
+}
+
+function Menu({ current, close, add, remove }: {
+  current: Study | undefined;
+  close: () => void;
+  add: (s: Study) => void;
+  remove: (id: string) => void;
+}) {
+  const file = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    addEventListener('keydown', esc);
+    return () => removeEventListener('keydown', esc);
+  }, [close]);
+
+  const printAs = (mode: 'notes' | 'lines') => {
+    document.body.dataset.print = mode;
+    close();
+    // Let the menu close and the print layout settle before the dialog opens.
+    requestAnimationFrame(() => requestAnimationFrame(() => print()));
+  };
+  const saveCopy = (s: Study) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([exportStudy(s)], { type: 'application/json' }));
+    a.download = `${(s.title || s.passage).replace(/[^\w\s:-]/g, '').replace(/:/g, '.').trim() || 'study'}.study.json`;
+    a.click();
+  };
+  const openCopy = async (f: File | undefined) => {
+    if (!f) return;
+    try {
+      add(importStudy(await f.text()));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  return (
+    <div className="menu-backdrop" onClick={close}>
+      <nav className="menu page-paper" aria-label="Menu" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="menu-close" onClick={close} aria-label="Close">×</button>
+        <p className="menu-brand">Sermon Workshop</p>
+        <a href={href.new()}>Begin a new study</a>
+        <a href={href.studies()}>Your studies</a>
+        {current && (
+          <>
+            <hr />
+            <p className="menu-label">{current.title || current.passage}</p>
+            <button type="button" onClick={() => printAs('lines')}>Print with lines to write on</button>
+            <button type="button" onClick={() => printAs('notes')}>Print my notes</button>
+            <button type="button" onClick={() => saveCopy(current)}>Save a copy</button>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => confirm(`Delete “${current.title || current.passage}”? This can’t be undone.`) && remove(current.id)}
+            >
+              Delete this study
+            </button>
+          </>
+        )}
+        <hr />
+        <button type="button" onClick={() => file.current?.click()}>Open a saved copy…</button>
+        <input ref={file} type="file" accept=".json,application/json" hidden onChange={(e) => openCopy(e.target.files?.[0])} />
+        {error && <p className="error" role="alert">{error}</p>}
+        <a href={href.paper()}>Paper</a>
+        <a href={href.about()}>About</a>
+      </nav>
     </div>
   );
 }
 
-/** Keeps the unreadable data under another key, so starting fresh never destroys it. */
+/** Keeps unreadable data under another key, so starting fresh never destroys it. */
 function moveAside(raw: string): Loaded {
-  const aside = `${STORE_KEY}:unreadable:${new Date().toISOString()}`;
   try {
-    localStorage.setItem(aside, raw);
+    localStorage.setItem(`${STORE_KEY}:unreadable:${new Date().toISOString()}`, raw);
     localStorage.removeItem(STORE_KEY);
   } catch (e) {
     return { state: 'unavailable', reason: (e as Error).message };
@@ -176,29 +263,27 @@ function moveAside(raw: string): Loaded {
   return load(kv);
 }
 
-function Corrupt({ loaded, onReset }: { loaded: Extract<Loaded, { state: 'corrupt' }>; onReset: () => void }) {
+function Unreadable({ loaded, onReset }: { loaded: Extract<Loaded, { state: 'corrupt' }>; onReset: () => void }) {
   const download = () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([loaded.raw], { type: 'application/json' }));
-    a.download = 'workshop-pads-unreadable.json';
+    a.download = 'workshop-studies-unreadable.json';
     a.click();
   };
   return (
-    <div className="desk">
-      <main>
-        <section className="paper notice" role="alert">
-          <h1>Your saved pads couldn’t be read</h1>
-          <p>
-            Something in this browser’s saved data is damaged ({loaded.reason}). Nothing has been changed or deleted.
-            Download a copy first; then you can start with a clean desk, and the damaged data stays saved alongside
-            in case it can be recovered.
-          </p>
-          <p className="actions">
-            <button type="button" onClick={download}>Download the saved data</button>
-            <button type="button" onClick={onReset}>Start a clean desk</button>
-          </p>
-        </section>
-      </main>
-    </div>
+    <main>
+      <section className="page-paper notice" role="alert">
+        <h1>Your saved studies couldn’t be read</h1>
+        <p>
+          Something in this browser’s saved data is damaged ({loaded.reason}). Nothing has been changed or deleted.
+          Download a copy first; then you can start with a clean desk, and the damaged data stays saved alongside in
+          case it can be recovered.
+        </p>
+        <p className="actions">
+          <button type="button" onClick={download}>Download the saved data</button>
+          <button type="button" onClick={onReset}>Start with a clean desk</button>
+        </p>
+      </section>
+    </main>
   );
 }

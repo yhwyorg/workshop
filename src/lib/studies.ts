@@ -1,13 +1,21 @@
 /**
- * Pads: one per sermon or study, kept in this browser.
+ * Studies: one per passage being worked on, kept in this browser.
  *
- * There is no server (free static hosting), so pads live in localStorage on the
- * device that made them, with export and import as a file. The shape is versioned
- * and every record carries an id and timestamps, so syncing can be added later
- * without changing what is stored.
+ * There is no server (free static hosting), so studies live in localStorage on the
+ * device that made them, with a saved copy as a file. The shape is versioned and
+ * every record carries an id and timestamps, so syncing can be added later without
+ * changing what is stored.
+ *
+ * Studies were first called "pads"; the stored key and the old file format are
+ * still read, so nothing made under the old name is lost.
  */
 
-export const SHEETS = ['observe', 'questions', 'connections', 'bigIdea', 'outline', 'illustrations', 'application'] as const;
+/**
+ * Where notes are written. "page" is the legal pad itself. The rest are the
+ * headed sheets of the first version; they are kept, and shown when they hold
+ * writing, so nothing written there disappears.
+ */
+export const SHEETS = ['page', 'observe', 'questions', 'connections', 'bigIdea', 'outline', 'illustrations', 'application'] as const;
 export type Sheet = (typeof SHEETS)[number];
 
 /** Marks a pastor puts on words of the text, cycled by tapping a word. */
@@ -35,7 +43,7 @@ export interface Ink {
   strokes: Stroke[];
 }
 
-export interface Pad {
+export interface Study {
   id: string;
   title: string;
   /** The passage as typed and parsed, e.g. "John 15:1-11". */
@@ -45,19 +53,22 @@ export interface Pad {
   notes: Partial<Record<Sheet, string>>;
   /** "verseKey:wordIndex" -> mark. */
   marks: Record<string, Mark>;
-  /** Handwriting by surface ("passage", "sheet:observe", …). Absent on pads with none. */
+  /** Handwriting by surface ("pad", "bible:15", …). Absent on studies with none. */
   ink?: Record<string, Ink>;
 }
 
 export interface Store {
   version: 1;
-  pads: Pad[];
+  /** Named "pads" when this was written; renaming it would orphan every saved study. */
+  pads: Study[];
 }
 
 export const STORE_KEY = 'workshop:store';
-export const PAD_FORMAT = 'workshop-pad/1';
+export const STUDY_FORMAT = 'workshop-study/1';
+/** The first version's file format, still accepted when opening a saved copy. */
+const OLD_FORMAT = 'workshop-pad/1';
 
-/** What reading the saved pads found. "corrupt" must never be treated as "empty". */
+/** What reading the saved studies found. "corrupt" must never be treated as "empty". */
 export type Loaded =
   | { state: 'ok'; store: Store }
   | { state: 'empty'; store: Store }
@@ -83,7 +94,7 @@ export function load(kv: KV): Loaded {
   try {
     const parsed = JSON.parse(raw) as Store;
     if (parsed?.version !== 1 || !Array.isArray(parsed.pads)) throw new Error('not a version 1 store');
-    parsed.pads.forEach((p, i) => checkPad(p, `pad ${i + 1}`));
+    parsed.pads.forEach((p, i) => checkStudy(p, `study ${i + 1}`));
     return { state: 'ok', store: parsed };
   } catch (e) {
     // Never start empty over unreadable data: the next save would overwrite it.
@@ -95,8 +106,8 @@ export function save(kv: KV, store: Store): void {
   kv.setItem(STORE_KEY, JSON.stringify(store));
 }
 
-function checkPad(p: unknown, where: string): asserts p is Pad {
-  const x = p as Pad;
+function checkStudy(p: unknown, where: string): asserts p is Study {
+  const x = p as Study;
   const str = (v: unknown) => typeof v === 'string';
   if (!x || !str(x.id) || !str(x.title) || !str(x.passage) || !str(x.created) || !str(x.updated)) {
     throw new Error(`${where} is missing its id, title, passage or dates`);
@@ -117,30 +128,31 @@ function checkPad(p: unknown, where: string): asserts p is Pad {
   }
 }
 
-export function newPad(passage: string, title: string, now = new Date()): Pad {
+export function newStudy(passage: string, title: string, now = new Date()): Study {
   const stamp = now.toISOString();
   return { id: crypto.randomUUID(), title, passage, created: stamp, updated: stamp, notes: {}, marks: {} };
 }
 
-/** A pad as a file someone can keep or send. */
-export function exportPad(pad: Pad): string {
-  return JSON.stringify({ format: PAD_FORMAT, pad }, null, 2);
+/** A study as a file someone can keep or send. */
+export function exportStudy(study: Study): string {
+  return JSON.stringify({ format: STUDY_FORMAT, study }, null, 2);
 }
 
 /**
- * Reads a pad file. It gets a new id, so importing a pad twice (or a colleague's copy
- * of yours) adds a pad rather than silently replacing one.
+ * Reads a saved copy. It gets a new id, so opening one twice (or a colleague's copy
+ * of yours) adds a study rather than silently replacing one.
  */
-export function importPad(text: string): Pad {
-  let parsed: { format?: unknown; pad?: unknown };
+export function importStudy(text: string): Study {
+  let parsed: { format?: unknown; study?: unknown; pad?: unknown };
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error('This file is not a workshop pad (it is not JSON).');
+    throw new Error('This file isn’t a saved study (it isn’t JSON).');
   }
-  if (parsed.format !== PAD_FORMAT) throw new Error('This file is not a workshop pad.');
-  checkPad(parsed.pad, 'the pad');
-  return { ...parsed.pad, id: crypto.randomUUID() };
+  const study = parsed.format === STUDY_FORMAT ? parsed.study : parsed.format === OLD_FORMAT ? parsed.pad : undefined;
+  if (study === undefined) throw new Error('This file isn’t a saved study.');
+  checkStudy(study, 'the study');
+  return { ...study, id: crypto.randomUUID() };
 }
 
 export const nextMark = (m: Mark | undefined): Mark | undefined =>

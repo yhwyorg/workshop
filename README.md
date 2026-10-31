@@ -2,11 +2,18 @@
 
 Soli Deo gloria. Made for Darrell W. Johnson.
 
-A yellow legal pad for working through a passage and building a sermon. Open a pad
-on a passage, mark the words that stand out (tap: underline, circle, box), and work
-down the sheets: Observe, Questions, Connections, Big idea, Outline, Illustrations,
-Application. Print your notes, or print the passage beside ruled lines on legal
-paper to write on by hand. Companion to [Gospel Parallels](https://gospels.yhwh.rest).
+A quiet desk for working on a passage: the Bible open on one side, a yellow legal
+pad on the other, and nothing else on screen. Begin a study the way a Bible is
+opened (its contents, then a chapter), mark words on the page (tap: underline,
+circle, box), and write on the pad by hand with an Apple Pencil or with the
+keyboard. Print your notes, or print the passage beside ruled lines on legal
+paper. Everything else is in one corner menu. Companion to
+[Gospel Parallels](https://gospels.yhwh.rest).
+
+![A study on an iPad held sideways](docs/screenshots/study-ipad-landscape.jpg)
+
+Both pages keep one width (548px) whether an iPad is upright or sideways, as
+paper does, so ink written in one orientation stays on its words in the other.
 
 ## Run it
 
@@ -17,20 +24,22 @@ npm test
 npm run build    # static site in dist/
 ```
 
-## Where pads live
+## Where studies live
 
-In the browser that made them (localStorage), with export and import as a file.
+In the browser that made them (localStorage), with "Save a copy" and "Open a saved
+copy" as a file. Studies were first called "pads": the storage key and the old file
+format are still read, so nothing saved under the old name is lost.
 There is no server. If the saved data is ever unreadable, the workshop says so and
 offers to download it; it never starts empty over it, since the next save would
 overwrite it. Records carry ids and timestamps so syncing can be added later.
 
-## Skins
+## Paper styles
 
-A skin is a JSON description of the paper, inks, desk and fonts (from a fixed set),
+A paper style (a "skin" in the code) is a JSON description of the paper, inks, desk and fonts (from a fixed set),
 in the `workshop-skin/1` format documented in `src/lib/skin.ts`. Skins are data,
 never CSS or script, because they come from strangers and pads hold private notes:
 `validateSkin` refuses web addresses, anything that is not a plain color or number,
-and text that would be hard to read (WCAG contrast). The Skins page gives a prompt
+and text that would be hard to read (WCAG contrast). The Paper page gives a prompt
 to paste into any AI, and accepts what it writes back.
 
 The paper itself (fibres, mottling, the lit tooth of the surface, the binding and
@@ -51,6 +60,8 @@ The build checks every book's chapter count and the total of 31,103 verses.
 
 ## Hosting
 
-GitHub Pages from `.github/workflows/deploy.yml` (tests and lint first). DNS for
+Changes arrive as pull requests; `.github/workflows/ci.yml` runs the tests, lint and
+build on each. Merging into `main` publishes through `.github/workflows/deploy.yml`
+to GitHub Pages. DNS for
 yhwh.rest is on Cloudflare: `workshop` is a `CNAME` to `yhwyorg.github.io` and must
 stay **DNS only** (grey cloud), or GitHub cannot issue its HTTPS certificate.
