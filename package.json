@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "text": "node scripts/build-text.mjs",
+    "xref": "node scripts/build-xref.mjs",
     "e2e": "playwright test"
   },
   "dependencies": {

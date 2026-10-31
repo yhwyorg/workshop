@@ -4,7 +4,7 @@ import type { Lengths } from './refs';
 const books = new Map<string, Promise<string[][]>>();
 let lengths: Promise<Lengths> | undefined;
 
-async function json<T>(path: string): Promise<T> {
+export async function json<T>(path: string): Promise<T> {
   const r = await fetch(path);
   // A missing file on a static host can come back as the HTML app shell with 200;
   // checking the content type stops that being parsed as an empty Bible.

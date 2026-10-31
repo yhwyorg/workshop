@@ -60,6 +60,10 @@ export async function draw(page: Page, selector: string, kind: 'pen' | 'touch' |
  * is no tab, and nothing to tap.
  */
 export async function show(page: Page, pane: string) {
+  // The question "is there a tab?" is only meaningful once the study is drawn. Asked
+  // straight after a reload it was answered "no" before the tabs existed, nothing was
+  // tapped, and the phone stayed on the Bible (seen as "Type button not found").
+  await page.getByRole('toolbar', { name: 'Study' }).waitFor();
   const tab = page.getByRole('tab', { name: pane, exact: true });
   if (await tab.isVisible()) await tab.click();
 }
