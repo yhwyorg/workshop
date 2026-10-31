@@ -67,19 +67,18 @@ test.describe('the Notebook', () => {
   });
 });
 
-test.describe('the pen, drawn in the toolbar', () => {
-  test('the three-colour pen is the colour picker: a colour chosen clicks its slider down', async ({ page }, info) => {
+test.describe('his pen, in the toolbar', () => {
+  test('shows a photograph of his three-colour pen, with its three colours beside it', async ({ page }, info) => {
     noPens(info.project.name);
     await beginStudy(page, 'John', 15);
     const pen = page.getByRole('group', { name: 'Three-colour pen' });
     await expect(pen).toBeVisible();
-    // Its colours are its sliders, not dots beside it.
-    await expect(page.locator('.tb-pens .nib-red')).toHaveCount(0);
+    // The photograph itself loaded: a missing file would leave an empty gap, silently.
+    await expect.poll(() => pen.locator('img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(600);
     await expect(pen.getByRole('button')).toHaveCount(3);
     const red = pen.getByRole('button', { name: 'Red pen', exact: true });
     await red.click();
     await expect(red).toHaveAttribute('aria-pressed', 'true');
-    await expect.poll(() => red.locator('.bic-tab').evaluate((el) => getComputedStyle(el).transform)).not.toBe('none');
   });
 
   test('the fountain pen style draws its fountain pen, which is its pen', async ({ page }, info) => {
@@ -88,6 +87,7 @@ test.describe('the pen, drawn in the toolbar', () => {
     await beginStudy(page, 'John', 15);
     const pen = page.getByRole('button', { name: 'Pen', exact: true });
     await expect(pen).toHaveClass(/fountain/);
+    await expect.poll(() => pen.locator('img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(600);
     await pen.click();
     await expect(pen).toHaveAttribute('aria-pressed', 'true');
   });

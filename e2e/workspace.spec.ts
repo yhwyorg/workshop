@@ -17,8 +17,14 @@ test.describe('the workspace', () => {
     await beginStudy(page, 'John', 15);
     const bible = page.getByRole('region', { name: 'Bible', exact: true });
     const notes = page.getByLabel('Notes', { exact: true });
-    await bible.evaluate((el) => el.scrollTo(0, el.scrollHeight));
-    await expect(page.locator('.scripture .v').last()).toBeInViewport();
+    // Scrolled until the end is reached, not once: the Bible column measures its full
+    // height a frame after the text appears, and a single scroll made before that went
+    // to the bottom of a column still short, and stayed there (failed in CI on #20,
+    // both iPad sizes, the screenshot still at verse 1).
+    await expect(async () => {
+      await bible.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+      await expect(page.locator('.scripture .v').last()).toBeInViewport({ timeout: 500 });
+    }).toPass();
     await expect(notes).toBeInViewport();
   });
 
