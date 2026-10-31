@@ -81,6 +81,23 @@ npm run text -- engwebp/engwebp_vpl.txt
 
 The build checks every book's chapter count and the total of 31,103 verses.
 
+### References (Compare)
+
+Other translations and commentaries are **not** copied in. They are fetched a chapter
+at a time from the [Free Use Bible API](https://bible.helloao.org/) (`src/lib/reference.ts`
+is the only file that knows about it). All are public domain except the Tyndale Open
+Study Notes (CC BY-SA 4.0), whose credit is shown under the notes and on About.
+
+- The API's book ids are USFM (`JHN`), ours are eBible's (`JOH`); eleven differ, and a
+  wrong one would come back 404 and read as "nothing on this chapter". The unit test
+  checks all 66 against the API's own list.
+- A 404 means the source has nothing on that chapter and says so quietly; a failed or
+  unreadable answer is an alert with Try again. The two are never shown alike.
+- The browser e2e tests serve responses recorded from the API (`e2e/recorded/`) so they
+  don't depend on its uptime. Re-record one with
+  `curl -o e2e/recorded/BSB_JHN_15.json https://bible.helloao.org/api/BSB/JHN/15.json`.
+- Opening a reference tells that site which chapter is being read. Nothing written is sent.
+
 ## Hosting
 
 Changes arrive as pull requests; `.github/workflows/ci.yml` runs the tests, lint and

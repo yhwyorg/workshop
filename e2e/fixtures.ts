@@ -54,11 +54,12 @@ export async function draw(page: Page, selector: string, kind: 'pen' | 'touch', 
 }
 
 /**
- * Shows the notes or the Bible. On a phone they are a tap apart (tabs); elsewhere both
- * are always on screen and there is nothing to tap.
+ * Shows a pane: the Bible, the notes, or a reference by its short name ("KJV"). Where
+ * panes share a place they are a tap apart (tabs); where everything is on screen there
+ * is no tab, and nothing to tap.
  */
-export async function show(page: Page, pane: 'Bible' | 'Notes') {
-  const tab = page.getByRole('tab', { name: pane });
+export async function show(page: Page, pane: string) {
+  const tab = page.getByRole('tab', { name: pane, exact: true });
   if (await tab.isVisible()) await tab.click();
 }
 
