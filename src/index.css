@@ -1,7 +1,9 @@
 /*
- * Every color, font and texture comes from the active skin as a custom property
- * (src/lib/skin.ts). The values below are only fallbacks for the instant before a
- * skin is applied.
+ * A quiet desk: an open Bible and a legal pad, and nothing else on screen.
+ *
+ * Every color, font and texture comes from the active paper style as a custom
+ * property (src/lib/skin.ts); the values here are only fallbacks for the instant
+ * before one is applied.
  */
 :root {
   --desk: #6b4f36;
@@ -24,241 +26,311 @@
   --font-scripture: Georgia, serif;
   --font-notes: cursive;
   --font-ui: system-ui, sans-serif;
-  /* Where the double red margin line falls, and where writing starts after it. */
-  --margin-x: 72px;
-  --text-x: 92px;
+  /* The legal pad's double red margin, and where writing starts after it. */
+  --margin-x: 64px;
+  --text-x: 80px;
+  --shadow: 0 1px 1px rgba(0, 0, 0, 0.18), 0 14px 32px rgba(0, 0, 0, 0.34);
+  /*
+   * Both pages keep one width whether the iPad is upright or sideways, as paper does.
+   * If they resized, the text would reflow and ink written in one orientation would
+   * sit on the wrong words in the other. Two pages and the gap fit an 11" iPad sideways.
+   */
+  --page-w: 548px;
 }
 
 * { box-sizing: border-box; }
 
+/*
+ * The desk. Its light falls off toward the edges through a fixed overlay rather than
+ * background-attachment: fixed, which iPad Safari does not support.
+ */
+html {
+  min-height: 100%;
+  background-color: var(--desk);
+  background-image:
+    var(--desk-grain),
+    repeating-linear-gradient(92deg, rgba(0, 0, 0, 0.05) 0 2px, transparent 2px 9px, rgba(255, 255, 255, 0.03) 9px 11px, transparent 11px 23px);
+}
 body {
   margin: 0;
   min-height: 100vh;
-  color: var(--ink);
+  color: var(--slip-ink);
   font-family: var(--font-ui);
-  /* The desk: its color, grain, a slow wood figure, and light falling off at the edges. */
-  background-color: var(--desk);
-  background-image:
-    radial-gradient(ellipse at 50% 30%, transparent 40%, rgba(0, 0, 0, 0.35) 100%),
-    var(--desk-grain),
-    repeating-linear-gradient(92deg, rgba(0, 0, 0, 0.05) 0 2px, transparent 2px 9px, rgba(255, 255, 255, 0.03) 9px 11px, transparent 11px 23px);
-  background-attachment: fixed;
+  -webkit-text-size-adjust: 100%;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 35%, transparent 45%, rgba(0, 0, 0, 0.32) 100%);
 }
 
 a { color: var(--accent); }
 button, input, textarea, select { font: inherit; color: inherit; }
-button {
-  cursor: pointer; border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); border-radius: 6px;
-  background: color-mix(in srgb, var(--slip) 85%, transparent); color: var(--slip-ink); padding: 6px 12px;
-}
-button:hover { border-color: var(--accent); }
-button.danger { color: var(--accent); }
-button.link { border: 0; background: none; padding: 0; color: var(--accent); text-decoration: underline; }
+button { cursor: pointer; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
-.hand { font-family: var(--font-notes); }
-.muted { color: var(--muted); }
+.quiet { color: var(--muted); }
 .small { font-size: 0.88rem; }
 .error { color: var(--accent); font-weight: 600; }
 .ok { color: var(--ink-notes); font-weight: 600; }
-
-/* Top bar, sitting on the desk rather than on paper. */
-.topbar {
-  display: flex; align-items: baseline; gap: 20px; padding: 14px 20px; color: var(--desk-ink);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-}
-.topbar a { color: var(--desk-ink); text-decoration: none; }
-.brand { font-family: var(--font-notes); font-size: 1.5rem; margin-right: auto; }
-.topbar nav { display: flex; gap: 16px; }
-.topbar nav a[aria-current='page'] { border-bottom: 2px solid currentColor; }
 .alert {
-  margin: 0 auto 12px; max-width: 860px; padding: 10px 14px; border-radius: 6px;
+  margin: 12px auto; max-width: 760px; padding: 10px 14px; border-radius: 6px;
   background: #fbecea; color: #8a1f17; border: 1px solid #e6b8b2;
 }
-main { padding: 8px 16px 64px; }
+
+/* Plain buttons, paper-coloured, large enough for a finger. */
+.button, .page-paper button, .typed button {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px;
+  border: 1px solid color-mix(in srgb, var(--slip-ink) 22%, transparent); border-radius: 8px;
+  background: color-mix(in srgb, var(--slip) 70%, #fff); color: var(--slip-ink); text-decoration: none;
+}
+.button:hover, .page-paper button:hover { border-color: var(--accent); }
+button.danger { color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+
+main { padding: 72px 20px 120px; }
 
 /* ---------- Paper ---------- */
 
-/* The paper's own surface, shared by sheets, slips and previews. */
-.paper, .sheet, .slip, .mini-sheet, .skin-sheet {
-  background-color: var(--paper);
-  background-image: var(--paper-wear), var(--paper-texture), var(--paper-fibres), var(--paper-tooth);
+/* The paper surface itself: fibres, mottling, the lit tooth. Wear (age, rings) belongs
+   to the well-used legal pad only; on the Bible's pages it read as smudges. */
+.page-paper, .bible-page, .menu { background-image: var(--paper-texture), var(--paper-fibres), var(--paper-tooth); }
+.pad-sheet, .skin-sheet { background-image: var(--paper-wear), var(--paper-texture), var(--paper-fibres), var(--paper-tooth); }
+/* A page of the Bible, and every other page: the cream "slip" paper. */
+.page-paper, .bible-page, .menu { background-color: var(--slip); color: var(--slip-ink); }
+.page-paper {
+  max-width: 760px; margin: 0 auto 28px; padding: 36px 44px; border-radius: 2px; box-shadow: var(--shadow);
+  line-height: 1.6;
 }
-.paper {
-  max-width: 860px; margin: 0 auto 24px; padding: 28px 32px; border-radius: 2px;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.18), 0 12px 28px rgba(0, 0, 0, 0.32);
+.page-paper h1 {
+  font-family: var(--font-scripture); font-weight: 400; font-size: 1.9rem; margin: 0 0 6px; letter-spacing: 0.01em;
+}
+.page-paper h2 { font-family: var(--font-scripture); font-weight: 400; font-size: 1.3rem; margin: 26px 0 6px; }
+.notice { max-width: 620px; }
+
+/* ---------- The corner menu ---------- */
+
+.menu-button {
+  position: fixed; top: 14px; left: 14px; z-index: 20; width: 46px; height: 46px; border-radius: 50%;
+  border: 0; background: color-mix(in srgb, var(--desk) 70%, #000 30%); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+/* Three short strokes, drawn rather than an icon font. */
+.menu-button span, .menu-button span::before, .menu-button span::after {
+  position: absolute; left: 14px; width: 18px; height: 2px; border-radius: 1px; background: var(--desk-ink); content: '';
+}
+.menu-button span { top: 22px; }
+.menu-button span::before { left: 0; top: -6px; }
+.menu-button span::after { left: 0; top: 6px; }
+
+.menu-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, 0.32); }
+.menu {
+  position: absolute; top: 0; left: 0; bottom: 0; width: min(320px, 86vw); padding: 22px 22px 28px;
+  display: flex; flex-direction: column; gap: 2px; overflow-y: auto; box-shadow: 6px 0 24px rgba(0, 0, 0, 0.35);
+}
+.menu a, .menu > button {
+  display: block; text-align: left; padding: 11px 6px; border: 0; border-radius: 6px; background: none;
+  color: var(--slip-ink); text-decoration: none; font-size: 1.05rem; min-height: 44px;
+}
+.menu a:hover, .menu > button:hover { background: color-mix(in srgb, var(--slip-ink) 7%, transparent); }
+.menu > button.danger { color: var(--accent); }
+.menu hr { width: 100%; border: 0; border-top: 1px solid color-mix(in srgb, var(--slip-ink) 15%, transparent); margin: 10px 0; }
+.menu-brand { font-family: var(--font-scripture); font-size: 1.25rem; margin: 2px 0 14px; }
+.menu-label { margin: 0 6px 4px; font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.menu-close {
+  position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border: 0; background: none;
+  font-size: 1.6rem; line-height: 1; color: var(--muted);
 }
 
-/* A pad: the glued binding, the top sheet, and the edges of the sheets beneath it. */
-.pad { position: relative; max-width: 860px; margin: 0 auto 32px; isolation: isolate; }
-.pad::before, .pad::after {
-  content: ''; position: absolute; left: 0; right: 0; top: 30px; bottom: 0; z-index: -1;
-  background-color: var(--paper); background-image: var(--paper-fibres); border-radius: 0 0 2px 2px;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-}
-/* Sheets underneath peek out by a few pixels, very slightly askew, and a touch darker. */
-.pad::before { transform: translate(3px, 4px) rotate(0.25deg); filter: brightness(0.94); }
-.pad::after { transform: translate(-2px, 8px) rotate(-0.35deg); filter: brightness(0.88); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.38); z-index: -2; }
+/* ---------- The Bible's contents ---------- */
 
+.contents { max-width: 820px; }
+.contents-title { text-align: center; font-variant: small-caps; letter-spacing: 0.12em; }
+.contents-sub { text-align: center; color: var(--muted); margin: 0 0 22px; }
+.testaments { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 40px; }
+.testaments h2 { font-size: 0.95rem; font-variant: small-caps; letter-spacing: 0.1em; color: var(--muted); margin: 0 0 6px; }
+.book-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 16px; }
+.book-list button, .page-paper .book-list button {
+  display: block; width: 100%; min-height: 38px; padding: 6px 4px; text-align: left;
+  border: 0; background: none; font-family: var(--font-scripture); font-size: 1.05rem;
+}
+.book-list button:hover { color: var(--accent); }
+.quiet-link, .page-paper .quiet-link { border: 0; background: none; color: var(--muted); padding: 4px 0; min-height: 0; }
+.chapter-grid { list-style: none; padding: 0; margin: 0 0 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 8px; }
+.chapter-grid button, .page-paper .chapter-grid button {
+  width: 100%; min-height: 52px; font-family: var(--font-scripture); font-size: 1.15rem; padding: 0;
+}
+.chapter-grid.compact { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); margin: 4px 0 18px; }
+.chapter-grid.compact button {
+  min-height: 44px; border: 1px solid color-mix(in srgb, var(--slip-ink) 18%, transparent); border-radius: 6px; background: none;
+}
+.chapter-grid button[aria-current='page'] { border-color: var(--accent); color: var(--accent); }
+.typed { margin-top: 30px; padding-top: 18px; border-top: 1px solid color-mix(in srgb, var(--slip-ink) 12%, transparent); display: grid; gap: 6px; }
+.typed label { color: var(--muted); font-size: 0.92rem; }
+.typed-row { display: flex; gap: 8px; }
+.typed input {
+  flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; border-radius: 8px; font-size: 1.05rem;
+  border: 1px solid color-mix(in srgb, var(--slip-ink) 22%, transparent); background: color-mix(in srgb, var(--slip) 60%, #fff);
+}
+
+/* ---------- A study: the Bible beside the pad ---------- */
+
+.spread { display: grid; grid-template-columns: var(--page-w) var(--page-w); justify-content: center; gap: 30px; align-items: start; }
+
+.bible-page {
+  position: relative; padding: 34px 48px 22px; border-radius: 2px 0 0 2px;
+  /* The inside edge darkens toward the spine, as a bound page does. */
+  box-shadow: var(--shadow), inset -18px 0 22px -18px rgba(0, 0, 0, 0.22);
+}
+.running-head { text-align: center; margin-bottom: 18px; }
+.running-head button {
+  border: 0; background: none; padding: 6px 10px; min-height: 40px;
+  font-family: var(--font-scripture); font-variant: small-caps; letter-spacing: 0.14em; font-size: 1rem; color: var(--muted);
+}
+.running-head button::after { content: ' ▾'; font-size: 0.7em; }
+.scripture {
+  /* Ragged right: justified at this measure opened rivers of space between words. */
+  font-family: var(--font-scripture); font-size: 1.16rem; line-height: 1.8; margin: 0;
+}
+/* The chapter number set large at the start, as printed Bibles do. */
+.drop { float: left; font-size: 3.6em; line-height: 0.82; margin: 0.08em 0.14em 0 0; color: var(--accent); }
+.vn { font-family: var(--font-ui); font-size: 0.6em; color: var(--muted); margin: 0 2px 0 1px; vertical-align: super; line-height: 0; }
+/* A study of a few verses keeps the rest of the chapter for context, set back. */
+.scripture.partial .v:not(.in-study) { opacity: 0.5; }
+.page-foot {
+  display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--slip-ink) 12%, transparent);
+  font-family: var(--font-scripture); font-variant: small-caps; letter-spacing: 0.08em; color: var(--muted);
+}
+.page-foot button { border: 0; background: none; color: var(--muted); font: inherit; min-height: 44px; padding: 0 10px; }
+.page-foot button:hover { color: var(--accent); }
+.translation { font-size: 0.82rem; }
+
+/* Words are buttons, so a tap, a click or a keyboard can mark them. */
+.word { all: unset; cursor: pointer; border-radius: 3px; }
+.word:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.word:focus-visible { outline: 2px solid var(--accent); }
+.word.mark-underline { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.word.mark-circle { border: 2px solid var(--accent); border-radius: 50% / 55%; padding: 0 4px; margin: 0 -2px; }
+.word.mark-box { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 1px; }
+
+/* The legal pad: gummed binding, the top sheet, and the sheets beneath. */
+.legal-pad { position: relative; isolation: isolate; }
+.legal-pad::before, .legal-pad::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 26px; bottom: 0; z-index: -1;
+  background-color: var(--paper); background-image: var(--paper-fibres); box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+.legal-pad::before { transform: translate(3px, 4px) rotate(0.25deg); filter: brightness(0.94); }
+.legal-pad::after { transform: translate(-2px, 8px) rotate(-0.35deg); filter: brightness(0.88); box-shadow: var(--shadow); z-index: -2; }
 .binding {
-  display: block; height: 30px; border-radius: 3px 3px 1px 1px; position: relative; z-index: 2;
-  /* The gummed strip that holds the pad together: dark, slightly glossy, folded over the top. */
+  height: 26px; border-radius: 3px 3px 1px 1px; position: relative; z-index: 2;
   background:
     linear-gradient(to bottom, rgba(255, 255, 255, 0.16), transparent 35%, rgba(0, 0, 0, 0.28)),
     var(--paper-fibres),
     color-mix(in srgb, var(--accent) 78%, #1a0a08);
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.35);
 }
-
-.sheet {
-  position: relative; padding: 26px 28px 40px var(--text-x); min-height: 70vh;
+.pad-sheet {
+  position: relative; background-color: var(--paper); color: var(--ink); padding: calc(var(--line) * 1.25) 22px calc(var(--line) * 2) 0;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
-  /* Paper surface (from above), plus the double margin line running the full height. */
   background-image:
     var(--paper-wear), var(--paper-texture), var(--paper-fibres), var(--paper-tooth),
     linear-gradient(90deg, transparent calc(var(--margin-x) - 1px), var(--margin) calc(var(--margin-x) - 1px) var(--margin-x), transparent var(--margin-x) calc(var(--margin-x) + 3px), var(--margin) calc(var(--margin-x) + 3px) calc(var(--margin-x) + 4px), transparent calc(var(--margin-x) + 4px));
 }
-/* Perforations just under the binding, where a sheet would tear off. */
-.sheet::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 8px; height: 3px; opacity: 0.55;
+/* Perforations just under the binding, and light from the upper left with a lifting corner. */
+.pad-sheet::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 8px; height: 3px; opacity: 0.5;
   background: radial-gradient(circle, rgba(0, 0, 0, 0.35) 0.8px, transparent 1.2px) 0 0 / 7px 3px repeat-x;
 }
-/* Light from the upper left, and a faint lift where the bottom corner curls. */
-.sheet::after {
+.pad-sheet::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background:
     radial-gradient(ellipse at 15% -10%, rgba(255, 252, 240, 0.22), transparent 55%),
     linear-gradient(315deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.04) 18px, transparent 40px) right bottom / 120px 120px no-repeat;
 }
-
-/* Ruled lines are drawn by whatever is written on them, so writing always sits on a line. */
-.ruled, .notes {
+/*
+ * Every block on the pad is a whole number of ruled lines tall, and the rules start at
+ * the top of this surface, so whatever is written always sits on a line.
+ */
+.pad-surface {
+  padding-left: var(--text-x);
   background-image: repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 1px), color-mix(in srgb, var(--rule) 85%, transparent) calc(var(--line) - 1px) var(--line));
-  background-attachment: local;
-  line-height: var(--line);
 }
-
-/* ---------- Desk page ---------- */
-
-.desk-page { display: grid; gap: 32px; }
-.start .sheet { min-height: 0; }
-.start h1 { font-size: 2.2rem; margin: 0 0 8px; font-weight: 400; color: var(--ink-notes); }
-.start-form { display: grid; gap: 14px; max-width: 460px; }
-.start-form label { display: grid; gap: 4px; color: var(--muted); font-size: 0.9rem; }
-.start-form input, .make textarea {
-  background: color-mix(in srgb, var(--slip) 70%, transparent); border: 1px solid color-mix(in srgb, var(--ink) 30%, transparent);
-  border-radius: 4px; padding: 8px 10px; color: var(--ink); font-size: 1.05rem;
-}
-.start-form button { justify-self: start; font-weight: 600; }
-
-.stack { max-width: 860px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 22px; }
-.mini-pad { display: block; text-decoration: none; color: var(--ink); transition: transform 0.15s; }
-.mini-pad:hover { transform: translateY(-3px) rotate(-0.4deg); }
-.mini-pad .binding { height: 14px; }
-.mini-sheet {
-  display: grid; gap: 4px; padding: 14px 12px 18px 22px; min-height: 150px;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2), 3px 4px 0 -1px color-mix(in srgb, var(--paper) 88%, #000), 0 10px 18px rgba(0, 0, 0, 0.3);
-}
-.mini-title { font-size: 1.3rem; color: var(--ink-notes); line-height: 1.2; }
-.mini-passage { font-family: var(--font-scripture); }
-.mini-date { color: var(--muted); font-size: 0.8rem; margin-top: auto; }
-
-/* ---------- A pad open on the desk ---------- */
-
-.pad-tools { max-width: 860px; margin: 0 auto 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--desk-ink); }
-.pad-tools > a { color: var(--desk-ink); }
-.spacer { flex: 1; }
-
 .pad-title {
-  width: 100%; border: 0; background: transparent; font-size: 2rem; color: var(--ink-notes); padding: 0; margin: 4px 0 0;
+  display: block; width: 100%; height: calc(var(--line) * 2); padding: calc(var(--line) * 0.5) 0 0; border: 0; background: transparent;
+  font-family: var(--font-notes); font-size: calc(var(--line) * 0.95); line-height: calc(var(--line) * 1.5); color: var(--ink-notes);
 }
-.pad-passage { margin: 2px 0 18px; font-family: var(--font-scripture); color: var(--ink); }
-
-/* The passage, on a slip of paper taped to the sheet. */
-.slip {
-  position: relative; margin: 0 0 26px; padding: 18px 20px 12px;
-  background-color: var(--slip); color: var(--slip-ink); border-radius: 1px;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.18), 0 6px 14px rgba(0, 0, 0, 0.16);
+.pad-title::placeholder { color: color-mix(in srgb, var(--muted) 55%, transparent); }
+.pad-meta { margin: 0; height: var(--line); line-height: var(--line); font-size: calc(var(--line) * 0.42); color: var(--muted); }
+.pad-heading { margin: 0; height: var(--line); line-height: var(--line); font-family: var(--font-notes); color: var(--accent); }
+.pad-lines {
+  display: block; width: 100%; min-height: calc(var(--line) * 18); margin: 0; padding: 0; border: 0; outline-offset: 0;
+  background: transparent; resize: none; overflow: hidden;
+  font-family: var(--font-notes); font-size: calc(var(--line) * 0.6); line-height: var(--line); color: var(--ink-notes);
 }
-.slip::before, .slip::after {
-  content: ''; position: absolute; top: -10px; width: 74px; height: 22px;
-  background: rgba(255, 255, 240, 0.55); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(0.5px);
-}
-.slip::before { left: 24px; transform: rotate(-4deg); }
-.slip::after { right: 24px; transform: rotate(3deg); }
-.scripture { font-family: var(--font-scripture); font-size: 1.2rem; line-height: 1.85; margin: 0; }
-.vn { font-family: var(--font-ui); font-size: 0.62em; color: var(--muted); margin: 0 3px 0 1px; }
-.slip-hint { font-size: 0.8rem; color: var(--muted); margin: 10px 0 0; }
-
-/* Words are buttons, so a tap, a click or a keyboard can mark them. */
-.word { all: unset; cursor: pointer; border-radius: 3px; padding: 0 1px; }
-.word:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.word:focus-visible { outline: 2px solid var(--accent); }
-.word.mark-underline { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; }
-.word.mark-circle { border: 2px solid var(--accent); border-radius: 50% / 55%; padding: 0 5px; margin: 0 -3px; }
-.word.mark-box { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 1px; }
-
-.sheet-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 6px; }
-.sheet-tabs button {
-  border-radius: 6px 6px 0 0; border-bottom: 0; font-size: 0.88rem; padding: 5px 10px;
-  background: color-mix(in srgb, var(--paper) 70%, var(--ink) 6%); color: var(--muted);
-}
-.sheet-tabs button[aria-selected='true'] { background: var(--paper); color: var(--ink); font-weight: 600; }
-.sheet-tabs button.has-notes::after { content: ' •'; color: var(--accent); }
-
-.notes {
-  display: block; resize: vertical; border: 0; outline-offset: 0;
-  /* Full sheet width, so the rules cross the margin line the way printed rules do. */
-  width: calc(100% + var(--text-x) + 28px); margin: 0 -28px 0 calc(var(--text-x) * -1); padding: 0 28px 0 var(--text-x);
-  background-color: transparent; color: var(--ink-notes); font-size: calc(var(--line) * 0.62);
-  min-height: calc(var(--line) * 14);
-}
-.notes::placeholder { color: color-mix(in srgb, var(--muted) 70%, transparent); }
-
-.print-notes, .print-lines { display: none; }
+.pad-lines.short { min-height: calc(var(--line) * 3); }
 
 /* ---------- Ink ---------- */
 
 .ink-surface { position: relative; }
 .ink { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-/* With the mouse as a pen, the cursor says so; words and notes stay clickable when it is off. */
-.ink-surface.mouse-pen, .ink-surface.mouse-pen .word, .ink-surface.mouse-pen .notes { cursor: crosshair; }
+.ink-surface.mouse-pen, .ink-surface.mouse-pen .word, .ink-surface.mouse-pen textarea, .ink-surface.mouse-pen input { cursor: crosshair; }
 .ink-note { position: relative; margin: 6px 0 0; font-size: 0.8rem; color: var(--accent); }
-/* The notes surface spans the sheet's full width, as the ruled lines do. */
-.notes-surface { margin: 0 -28px 0 calc(var(--text-x) * -1); }
-.notes-surface .notes { width: 100%; margin: 0; overflow: hidden; resize: none; }
 
-.pen-bar {
-  position: sticky; bottom: 12px; z-index: 5; max-width: 860px; margin: 18px auto 0; display: flex; flex-wrap: wrap; gap: 6px;
-  align-items: center; padding: 8px 10px; border-radius: 10px;
-  background: color-mix(in srgb, var(--desk) 88%, #000); color: var(--desk-ink); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+/* The pen cup: one round button in the corner, opening to the pens. */
+.pen-cup { position: fixed; right: 18px; bottom: 18px; z-index: 15; display: grid; justify-items: end; gap: 10px; }
+.cup-row { display: flex; gap: 10px; align-items: center; }
+.cup, .undo {
+  border: 0; border-radius: 50%; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--desk) 70%, #000 30%); color: var(--desk-ink); box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
 }
-.pen-bar button { background: transparent; color: var(--desk-ink); border-color: transparent; }
-.pen-bar button[aria-pressed='true'] { background: color-mix(in srgb, var(--desk-ink) 18%, transparent); border-color: var(--desk-ink); }
-.pen-bar button:disabled { opacity: 0.45; cursor: default; }
-.nib { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; }
+.cup { width: 58px; height: 58px; }
+.cup .nib { width: 20px; height: 20px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--desk-ink) 30%, transparent); }
+.undo { width: 46px; height: 46px; font-size: 1.4rem; }
+/* Nothing to undo: nothing to show. */
+.undo:disabled { visibility: hidden; }
+.pen-choices {
+  display: grid; gap: 2px; padding: 8px; border-radius: 12px; min-width: 210px;
+  background: var(--slip); color: var(--slip-ink); box-shadow: var(--shadow);
+}
+.pen-choices button {
+  display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 6px 10px; border: 0; border-radius: 8px;
+  background: none; text-align: left; font-size: 1rem;
+}
+.pen-choices button[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 9%, transparent); font-weight: 600; }
+.mouse-writes { display: flex; gap: 8px; align-items: center; padding: 8px 10px 4px; font-size: 0.88rem; color: var(--muted); }
+/* A finger or Pencil device has no use for "write with the mouse". */
+@media (pointer: coarse) { .mouse-writes { display: none; } }
+.nib { display: inline-block; width: 14px; height: 14px; border-radius: 50%; flex: none; }
 .nib-pen { background: var(--ink-notes); }
 .nib-red { background: var(--accent); }
 .nib-pencil { background: var(--muted); }
-.nib-highlighter { background: #f2d43a; border-radius: 2px; }
-.mouse-toggle { display: inline-flex; gap: 6px; align-items: center; margin-left: auto; font-size: 0.9rem; }
+.nib-highlighter { background: #f2d43a; border-radius: 3px; }
+.nib-eraser { background: #f4f1ec; border: 1px solid #b7afa3; border-radius: 3px; }
 
-/* ---------- Skins ---------- */
+/* ---------- Your studies ---------- */
 
-.skins-page .intro, .skins-page .make { max-width: 860px; }
-.intro h1, .make h2 { font-weight: 400; color: var(--ink-notes); margin-top: 0; }
-.skin-grid { max-width: 860px; margin: 0 auto 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 20px; }
+.study-list { list-style: none; padding: 0; margin: 10px 0 22px; border-top: 1px solid color-mix(in srgb, var(--slip-ink) 12%, transparent); }
+.study-list li { border-bottom: 1px solid color-mix(in srgb, var(--slip-ink) 12%, transparent); }
+.study-list a {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; padding: 14px 4px; color: var(--slip-ink); text-decoration: none;
+}
+.study-list a:hover { background: color-mix(in srgb, var(--slip-ink) 5%, transparent); }
+.study-title { font-family: var(--font-scripture); font-size: 1.2rem; }
+.study-passage { grid-row: 2; color: var(--muted); font-size: 0.92rem; }
+.study-date { grid-column: 2; grid-row: 1; color: var(--muted); font-size: 0.88rem; align-self: center; }
+
+/* ---------- Paper styles ---------- */
+
+.skin-grid { max-width: 760px; margin: 0 auto 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 18px; }
 .skin-card {
-  all: unset; cursor: pointer; display: grid; gap: 4px; padding: 10px; border-radius: 8px;
+  all: unset; cursor: pointer; display: grid; gap: 4px; padding: 10px; border-radius: 10px;
   background: var(--desk); color: var(--desk-ink); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
-.skin-card.current { outline: 3px solid var(--accent); }
+.skin-card.current { outline: 3px solid var(--desk-ink); }
 .skin-card:focus-visible { outline: 3px solid #fff; }
 .skin-preview { display: block; }
 .skin-preview .binding { height: 10px; }
 .skin-sheet {
-  display: grid; gap: 6px; padding: 12px 10px 14px 30px; min-height: 110px; position: relative;
+  display: grid; gap: 6px; padding: 12px 10px 14px 30px; min-height: 104px; position: relative; background-color: var(--paper);
   background-image: var(--paper-wear), var(--paper-fibres), var(--paper-tooth),
     linear-gradient(90deg, transparent 21px, var(--margin) 21px 22px, transparent 22px),
     repeating-linear-gradient(to bottom, transparent 0 19px, var(--rule) 19px 20px);
@@ -267,56 +339,71 @@ main { padding: 8px 16px 64px; }
 .skin-note { font-family: var(--font-notes); color: var(--ink-notes); }
 .skin-name { font-weight: 600; }
 .skin-by { font-size: 0.8rem; opacity: 0.8; }
-.make ol { padding-left: 1.2rem; line-height: 1.8; }
-.make textarea { width: 100%; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+.make summary { cursor: pointer; font-family: var(--font-scripture); font-size: 1.15rem; }
+.make ol { padding-left: 1.2rem; line-height: 1.9; }
+.make textarea {
+  width: 100%; font-family: ui-monospace, monospace; font-size: 0.85rem; padding: 10px; border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--slip-ink) 22%, transparent); background: color-mix(in srgb, var(--slip) 60%, #fff);
+}
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* ---------- About ---------- */
 
-.about { line-height: 1.65; font-size: 1.05rem; }
-.about h1 { font-weight: 400; color: var(--ink-notes); font-size: 2.1rem; margin: 0 0 12px; }
+.about { font-size: 1.05rem; }
 .soli { font-variant: small-caps; letter-spacing: 0.12em; color: var(--accent); margin: 0; }
-.notice { max-width: 640px; }
 
-@media (max-width: 640px) {
-  :root { --margin-x: 34px; --text-x: 46px; }
-  .sheet { padding-right: 16px; }
-  .notes { width: calc(100% + var(--text-x) + 16px); margin-right: -16px; padding-right: 16px; }
-  .notes-surface { margin-right: -16px; }
-  .topbar { flex-wrap: wrap; }
+/* ---------- Narrower screens: the pad below the Bible ---------- */
+
+/* Too narrow for both side by side: the pad goes under the Bible, at the same width. */
+@media (max-width: 1165px) {
+  .spread { grid-template-columns: min(100%, var(--page-w)); gap: 44px; }
 }
+@media (max-width: 640px) {
+  :root { --margin-x: 30px; --text-x: 42px; }
+  main { padding: 68px 10px 120px; }
+  .page-paper { padding: 26px 20px; }
+  .bible-page { padding: 26px 20px 16px; }
+  .testaments { grid-template-columns: 1fr; }
+  .scripture { font-size: 1.08rem; }
+}
+
+.print-lines, .print-text { display: none; }
 
 /* ---------- Print ---------- */
 
 @page { margin: 0.6in; }
-/* Handwriting sheets go on legal paper, like the pads they stand in for. */
+/* Lines to write on go on legal paper, like the pads they stand in for. */
 @page legal { size: 8.5in 14in; margin: 0.5in; }
 
 @media print {
-  /* No yellow fill or desk: ink on white paper, with the blue rules and red margin kept. */
-  body, .sheet, .slip, .paper { background: #fff !important; box-shadow: none !important; }
-  .topbar, .alert, .no-print, .pad::before, .pad::after, .sheet::before, .sheet::after, .binding, .slip::before, .slip::after { display: none !important; }
+  html, body { background: #fff !important; }
+  body::before, .menu-button, .pen-cup, .alert, .page-foot button, .ink-note, .chapter-grid { display: none !important; }
+  .running-head button::after { content: none; }
   main { padding: 0; }
-  .pad, .sheet { max-width: none; margin: 0; min-height: 0; }
-  .sheet { padding: 0; }
-  .pad-title { font-size: 20pt; }
-  .slip { padding: 0; margin: 0 0 12pt; }
+  .bible-page, .pad-sheet, .page-paper { background: #fff !important; box-shadow: none !important; }
+  .legal-pad::before, .legal-pad::after, .pad-sheet::before, .pad-sheet::after, .binding { display: none !important; }
+  .spread { display: block; max-width: none; }
+  .bible-page { padding: 0; }
   .scripture { font-size: 11.5pt; line-height: 1.6; }
-  .word.mark-underline, .word.mark-circle, .word.mark-box { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  /* Print just the study's verses, unless there is ink on the page: removing the
+     context verses would move the text out from under what was written on it. */
+  .scripture.partial:not(.inked) .v:not(.in-study) { display: none; }
+  .word.mark-underline, .word.mark-circle, .word.mark-box, .ink, .pad-surface, .pad-sheet {
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
 
-  body[data-print='notes'] .print-notes { display: block; }
-  .print-notes h2 { font-family: var(--font-ui); font-size: 11pt; text-transform: uppercase; letter-spacing: 0.06em; color: #555; margin: 14pt 0 2pt; }
-  .print-notes p { white-space: pre-wrap; font-size: 12pt; margin: 0; }
+  /* My notes: the passage, then the pad's writing on its rules. */
+  body[data-print='notes'] .legal-pad { margin-top: 18pt; }
+  textarea.pad-lines { display: none; }
+  .print-text { display: block; white-space: pre-wrap; min-height: 0; }
 
-  body[data-print='handwriting'] .pad-page { page: legal; }
-  body[data-print='handwriting'] .sheet { display: grid; grid-template-columns: 44% 1fr; column-gap: 0.3in; align-items: start; }
-  body[data-print='handwriting'] .pad-title, body[data-print='handwriting'] .pad-passage { grid-column: 1 / -1; }
-  body[data-print='handwriting'] .slip { grid-column: 1; }
+  /* Lines to write on: the passage beside ruled lines, on legal paper. */
+  body[data-print='lines'] .spread { page: legal; display: grid; grid-template-columns: 46% 1fr; column-gap: 0.3in; align-items: start; }
+  body[data-print='lines'] .legal-pad { display: none; }
+  body[data-print='lines'] .print-lines {
+    display: block; print-color-adjust: exact; -webkit-print-color-adjust: exact; border-left: 2.5pt double #d4574f; padding-left: 4pt;
+  }
   /* Real lines, not a background gradient: Chrome rasterises thin repeating gradients
      for print, and rules under a pixel thick vanished from the PDF. */
-  body[data-print='handwriting'] .print-lines {
-    display: block; grid-column: 2; grid-row: 3 / span 2; print-color-adjust: exact; -webkit-print-color-adjust: exact;
-    border-left: 2.5pt double #d4574f; padding-left: 4pt;
-  }
   .print-lines span { display: block; height: 0.34in; border-bottom: 0.75pt solid #8fb4d4; }
 }

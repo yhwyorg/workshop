@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { TOOL_STYLE, compact, strokePath, touches } from '../lib/ink';
-import type { Ink, Stroke, Tool } from '../lib/pads';
+import type { Ink, Stroke, Tool } from '../lib/studies';
 
 export type PenTool = Tool | 'eraser';
 

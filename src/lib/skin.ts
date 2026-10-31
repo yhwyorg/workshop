@@ -245,7 +245,8 @@ Reply with JSON only, in exactly this format:
 
 Rules: colors are hex only. ink.text and ink.notes need a contrast of at least 4.5:1 against
 paper.color, as does slip.ink against slip.color; ink.muted needs 3:1. "desk" is the surface
-around the pad; "slip" is the small cards that hold verses. "wear" adds age and coffee rings.
+everything sits on; "paper" is the legal pad; "slip" is the Bible's page beside it. "wear" adds
+age and coffee rings.
 No CSS, no web addresses, no other keys.
 
 The look I want: `;

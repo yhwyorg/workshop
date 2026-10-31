@@ -52,12 +52,13 @@ export function paperTile(color: string, grain: number, dark: boolean): string {
     for (const dx of [-TILE, 0, TILE]) for (const dy of [-TILE, 0, TILE]) draw(dx, dy);
   };
 
-  // Mottling: broad, very faint clouds.
-  for (let i = 0; i < 26; i++) {
+  // Mottling: broad, very faint clouds. Kept faint and many: a few strong ones repeat
+  // visibly from tile to tile and read as grey smudges.
+  for (let i = 0; i < 40; i++) {
     const x = rand() * TILE;
     const y = rand() * TILE;
-    const r = 40 + rand() * 110;
-    const a = (0.025 + rand() * 0.035) * (0.5 + grain);
+    const r = 60 + rand() * 120;
+    const a = (0.01 + rand() * 0.016) * (0.5 + grain);
     wrap((dx, dy) => {
       const g = ctx.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, r);
       g.addColorStop(0, `rgba(${shade},${a.toFixed(3)})`);

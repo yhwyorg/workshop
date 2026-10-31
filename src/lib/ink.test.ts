@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { compact, strokePath, touches } from './ink';
-import type { Stroke } from './pads';
+import type { Stroke } from './studies';
 
 const line: Stroke = { tool: 'pen', pts: [0, 0, 0.5, 20, 0, 0.6, 40, 0, 0.7, 60, 0, 0.6] };
 
