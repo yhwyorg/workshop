@@ -41,23 +41,38 @@ test.describe('the workspace', () => {
 });
 
 test.describe('the look', () => {
-  test('dark mode follows the device', async ({ browser }, info) => {
-    // The canvas colour as painted: the first of body and html with a background of
-    // its own. Reading body alone passed against the old design, whose body was
-    // transparent ("0,0,0,0" read as black).
+  // The canvas colour as painted: the first of body and html with a background of its
+  // own. Reading body alone passed against an earlier design whose body was transparent
+  // ("0,0,0,0" read as black).
+  const canvas = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      for (const el of [document.body, document.documentElement]) {
+        const c = getComputedStyle(el).backgroundColor;
+        const n = c.match(/[\d.]+/g)!.map(Number);
+        if (n.length === 3 || n[3] > 0) return n.slice(0, 3);
+      }
+      return [255, 255, 255];
+    });
+
+  test('it starts in Sepia, even when the device is in dark mode', async ({ browser }, info) => {
+    const context = await browser.newContext({ ...info.project.use, colorScheme: 'dark' });
+    const page = await context.newPage();
+    await page.goto('/#/new');
+    await page.getByRole('heading', { name: 'The Holy Bible' }).waitFor();
+    // Sepia's page colour, #f6eedc.
+    expect(await canvas(page)).toEqual([246, 238, 220]);
+    await context.close();
+  });
+
+  test('"Automatic" follows the device: light by day, dark at night', async ({ browser }, info) => {
     const luminance = async (scheme: 'light' | 'dark') => {
       const context = await browser.newContext({ ...info.project.use, colorScheme: scheme });
       const page = await context.newPage();
+      await page.goto('/#/paper');
+      await page.getByRole('button', { name: /Automatic/ }).click();
       await page.goto('/#/new');
       await page.getByRole('heading', { name: 'The Holy Bible' }).waitFor();
-      const rgb = await page.evaluate(() => {
-        for (const el of [document.body, document.documentElement]) {
-          const c = getComputedStyle(el).backgroundColor;
-          const n = c.match(/[\d.]+/g)!.map(Number);
-          if (n.length === 3 || n[3] > 0) return n.slice(0, 3);
-        }
-        return [255, 255, 255];
-      });
+      const rgb = await canvas(page);
       await context.close();
       return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
     };
