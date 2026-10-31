@@ -62,6 +62,10 @@ test.describe('setting the text', () => {
     // Paragraph breaks move every word after them; old ink would float over the wrong
     // words. So a chapter carrying ink from before keeps the old, continuous setting.
     await beginStudy(page, 'John', 15);
+    // The study is saved a moment after it begins. Writing before then found no store
+    // (flaky in CI on #13); and with a save still pending, leaving on reload would save
+    // the app's copy over this one.
+    await expect.poll(async () => (await savedStudies(page)).length).toBe(1);
     await page.evaluate(() => {
       const store = JSON.parse(localStorage.getItem('workshop:store')!);
       store.pads[0].ink = { 'bible:15': { width: 560, strokes: [{ tool: 'pen', pts: [10, 10, 0.5, 60, 12, 0.5] }] } };
