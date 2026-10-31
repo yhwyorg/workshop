@@ -9,6 +9,7 @@ import { href } from '../lib/route';
 import { nextMark, SHEETS, type Ink, type Mark, type Sheet, type Study, type Tool } from '../lib/studies';
 import { loadBook } from '../lib/text';
 import Fit from './Fit';
+import NotesEdge from './NotesEdge';
 import InkSurface from './Ink';
 import { ReferencePicker, ReferenceText } from './Reference';
 import { useScrollLock } from './scrollLock';
@@ -56,6 +57,15 @@ const pref = {
 const NOTES_MODE_KEY = 'workshop:notes-mode';
 /** Set once a Pencil has been used here; from then on fingers scroll, not write. */
 const PENCIL_KEY = 'workshop:pencil';
+/** The notepad's size, as the reader left it: width beside the Bible, height below it. */
+const NOTES_WIDTH_KEY = 'workshop:notes-width';
+const NOTES_HEIGHT_KEY = 'workshop:notes-height';
+/** "1" when the notepad is folded away. */
+const FOLDED_KEY = 'workshop:notes-folded';
+const sizePref = (k: string) => {
+  const n = Number(pref.get(k));
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
 /** "0" when the reader has unlocked the Bible and references from each other. */
 const LOCK_KEY = 'workshop:scroll-lock';
 
@@ -109,6 +119,10 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   const [notesMode, setNotesMode] = useState<'write' | 'type'>(() => (pref.get(NOTES_MODE_KEY) === 'type' ? 'type' : 'write'));
   const [pencil, setPencil] = useState(() => pref.get(PENCIL_KEY) === '1');
   const phone = useMediaQuery('(max-width: 599px)');
+  const upright = useMediaQuery('(max-width: 999px)') && !phone;
+  const [notesWidth, setNotesWidth] = useState(() => sizePref(NOTES_WIDTH_KEY));
+  const [notesHeight, setNotesHeight] = useState(() => sizePref(NOTES_HEIGHT_KEY));
+  const [folded, setFolded] = useState(() => pref.get(FOLDED_KEY) === '1');
   // What each change of ink replaced, newest last, so Undo can put it back.
   const [history, setHistory] = useState<{ surface: string; before: Ink | undefined }[]>([]);
   const biblePane = useRef<HTMLElement>(null);
@@ -213,6 +227,16 @@ export default function StudyView({ study, lengths, update, openMenu }: {
     setLocked(!locked);
     pref.set(LOCK_KEY, locked ? '0' : '1');
   };
+  const fold = (on: boolean) => {
+    setFolded(on);
+    pref.set(FOLDED_KEY, on ? '1' : '0');
+  };
+  const keepSize = (key: string) => (px: number | null) => pref.set(key, px === null ? '' : String(px));
+  // The sizes are applied as CSS variables; folded, the layout's own folded sizes rule.
+  const sizes = folded || phone ? {} : {
+    ...(notesWidth ? { '--notes-size': `${notesWidth}px` } : {}),
+    ...(notesHeight ? { '--notes-height': `${notesHeight}px` } : {}),
+  };
   const front = pane === 'bible' || pane === 'notes' || references.some((r) => r.id === pane) ? pane : 'bible';
   const tabs = [{ id: 'bible', label: 'Bible' }, ...references.map((r) => ({ id: r.id, label: r.short })), { id: 'notes', label: 'Notes' }];
   // The Pencil always writes with the chosen tool ("read" leaves it on the pen). A mouse
@@ -236,7 +260,11 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   };
 
   return (
-    <div ref={workspace} className={`workspace${references.length ? ' has-ref' : ''}`} style={{ '--bible-scale': bibleScale } as CSSProperties}>
+    <div
+      ref={workspace}
+      className={`workspace${references.length ? ' has-ref' : ''}${folded && !phone ? ' notes-folded' : ''}`}
+      style={{ '--bible-scale': bibleScale, ...sizes } as CSSProperties}
+    >
       {phone && (
         <div className="pane-switch">
           <div className="pane-tabs" role="tablist" aria-label="Show">
@@ -268,8 +296,31 @@ export default function StudyView({ study, lengths, update, openMenu }: {
         </div>
       )}
 
+      {!phone && !folded && (
+        <NotesEdge
+          workspace={workspace} upright={upright}
+          size={upright ? notesHeight : notesWidth}
+          setSize={upright ? setNotesHeight : setNotesWidth}
+          done={keepSize(upright ? NOTES_HEIGHT_KEY : NOTES_WIDTH_KEY)}
+        />
+      )}
+
       <section className={`pane notes-pane${front === 'notes' ? ' front' : ''}`} role="region" aria-label="Your notes">
-        <Fit width={NOTES_W} gutter={16} on={!phone}>
+        {/* Beside the Bible a folded notepad is a strip to tap; below it (upright), the
+            strip sat under the toolbar and couldn't be tapped, so it unfolds from there. */}
+        {!phone && (folded ? (
+          !upright && (
+            <button type="button" className="notes-unfold" onClick={() => fold(false)} aria-label="Unfold the notepad">
+              <span aria-hidden="true">Notes</span>
+            </button>
+          )
+        ) : (
+          <button type="button" className="notes-fold" onClick={() => fold(true)} aria-label="Fold the notepad" title="Fold the notepad away">
+            {upright ? '⌄' : '›'}
+          </button>
+        ))}
+        {/* A bigger notepad is a bigger page: it zooms up to nearly twice its size. */}
+        <Fit width={NOTES_W} gutter={16} max={1.8} on={!phone}>
           <Notes study={study} update={update} ink={study.ink?.pad} setInk={setInk('pad')} mode={notesMode} setMode={chooseNotesMode} {...notesPen} />
         </Fit>
       </section>
@@ -325,6 +376,12 @@ export default function StudyView({ study, lengths, update, openMenu }: {
                 <path d="M8 11l-2 2a3.5 3.5 0 0 0 5 5l1-1M16 13l2-2a3.5 3.5 0 0 0-5-5l-1 1M4 4l3 3M20 20l-3-3" />
               )}
             </svg>
+          </button>
+        )}
+        {upright && folded && (
+          <button type="button" className="tb-icon tb-unfold" onClick={() => fold(false)} aria-label="Unfold the notepad" title="Unfold the notepad">
+            {/* Ruled lines: the notepad. */}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2" /><path d="M8 8.5h8M8 12h8M8 15.5h5" /></svg>
           </button>
         )}
         <span className="tb-sep tb-pens-sep" aria-hidden="true" />
