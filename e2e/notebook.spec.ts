@@ -65,6 +65,39 @@ test.describe('the Notebook', () => {
   });
 });
 
+test.describe('the pen, drawn in the toolbar', () => {
+  test('the four-colour pen is the colour picker: a colour chosen clicks its slider down', async ({ page }, info) => {
+    noPens(info.project.name);
+    await beginStudy(page, 'John', 15);
+    const pen = page.getByRole('group', { name: 'Four-colour pen' });
+    await expect(pen).toBeVisible();
+    // Its colours are its sliders, not dots beside it.
+    await expect(page.locator('.tb-pens .nib-red')).toHaveCount(0);
+    const green = pen.getByRole('button', { name: 'Green pen', exact: true });
+    await green.click();
+    await expect(green).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => green.locator('.bic-tab').evaluate((el) => getComputedStyle(el).transform)).not.toBe('none');
+  });
+
+  test('the fountain pen style draws its fountain pen, which is its pen', async ({ page }, info) => {
+    noPens(info.project.name);
+    await choose(page, /Notebook, fountain pen$/);
+    await beginStudy(page, 'John', 15);
+    const pen = page.getByRole('button', { name: 'Pen', exact: true });
+    await expect(pen).toHaveClass(/fountain/);
+    await pen.click();
+    await expect(pen).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('a style with no pen of its own keeps the plain pens', async ({ page }, info) => {
+    noPens(info.project.name);
+    await choose(page, /Sepia$/);
+    await beginStudy(page, 'John', 15);
+    await expect(page.locator('.pen-art')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Red pen', exact: true }).locator('.nib-red')).toBeVisible();
+  });
+});
+
 test.describe('the Notebook with a fountain pen', () => {
   test('writes in blue-black, with a deep red second pen and no black or green', async ({ page }, info) => {
     noPens(info.project.name);

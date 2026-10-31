@@ -14,5 +14,6 @@
     "red": "#8e1f24"
   },
   "slip": { "color": "#f8f8f5", "ink": "#1f2226" },
-  "fonts": { "scripture": "book", "notes": "clean", "ui": "clean" }
+  "fonts": { "scripture": "book", "notes": "clean", "ui": "clean" },
+  "pen": "fountain"
 }

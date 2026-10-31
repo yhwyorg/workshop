@@ -24,6 +24,9 @@ export const FONTS = {
   chalk: "'Chalkboard SE', 'Chalkduster', 'Segoe Print', 'Comic Sans MS', cursive",
 } as const;
 export type FontKey = keyof typeof FONTS;
+/** A pen a skin may have drawn in the toolbar, from a fixed set (drawn by the site, never the skin). */
+export const PEN_KINDS = ['none', 'four-colour', 'fountain'] as const;
+export type PenKind = (typeof PEN_KINDS)[number];
 
 export interface Skin {
   format: typeof SKIN_FORMAT;
@@ -61,6 +64,8 @@ export interface Skin {
   ink: { text: string; notes: string; accent: string; muted: string; red: string; black?: string; green?: string };
   slip: { color: string; ink: string };
   fonts: { scripture: FontKey; notes: FontKey; ui: FontKey };
+  /** The pen drawn in the toolbar: a four-colour ballpoint (its sliders are the pens) or a fountain pen. */
+  pen: PenKind;
 }
 
 export type SkinResult = { ok: true; skin: Skin; warnings: string[] } | { ok: false; errors: string[] };
@@ -118,7 +123,7 @@ export function validateSkin(input: unknown): SkinResult {
 
   const s = obj(input, 'skin');
   if (s.format !== SKIN_FORMAT) errors.push(`format must be "${SKIN_FORMAT}"`);
-  const known = new Set(['format', 'name', 'author', 'description', 'dark', 'desk', 'paper', 'ink', 'slip', 'fonts']);
+  const known = new Set(['format', 'name', 'author', 'description', 'dark', 'desk', 'paper', 'ink', 'slip', 'fonts', 'pen']);
   for (const k of Object.keys(s)) if (!known.has(k)) warnings.push(`"${k}" is not part of the skin format and was ignored`);
 
   const desk = obj(s.desk, 'desk');
@@ -166,7 +171,10 @@ export function validateSkin(input: unknown): SkinResult {
     },
     slip: { color: color(slip.color, 'slip.color'), ink: color(slip.ink, 'slip.ink') },
     fonts: { scripture: font(fonts.scripture, 'fonts.scripture'), notes: font(fonts.notes, 'fonts.notes'), ui: font(fonts.ui, 'fonts.ui') },
+    pen: oneOf(s.pen, 'pen', PEN_KINDS, 'none'),
   };
+  // A four-colour pen needs its four colours; without them its sliders would be blank.
+  if (skin.pen === 'four-colour' && !(skin.ink.black && skin.ink.green)) errors.push('pen "four-colour" needs ink.black and ink.green too');
 
   // Checked whenever the colors themselves are valid, so a skin with several problems
   // gets them all in one reply, not one round trip to the AI per problem.
@@ -313,7 +321,8 @@ Reply with JSON only, in exactly this format:
              "red": "#hex (optional)", "black": "#hex (optional)", "green": "#hex (optional)" },
   "slip":  { "color": "#hex", "ink": "#hex" },
   "fonts": { "scripture": "${Object.keys(FONTS).join(' | ')}",
-             "notes": "(same choices)", "ui": "(same choices)" }
+             "notes": "(same choices)", "ui": "(same choices)" },
+  "pen": "${PEN_KINDS.join(' | ')} (optional: the pen drawn in the toolbar)"
 }
 
 Rules: colors are hex only. ink.text and ink.notes need a contrast of at least 4.5:1 against
