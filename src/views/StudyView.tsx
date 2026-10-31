@@ -11,7 +11,7 @@ import { nextMark, SHEETS, type Ink, type Mark, type Sheet, type Study, type Too
 import { loadBook } from '../lib/text';
 import Fit from './Fit';
 import NotesEdge from './NotesEdge';
-import { FountainPen, FourColourPen } from './PenArt';
+import { FountainPen, MultiColourPen } from './PenArt';
 import InkSurface from './Ink';
 import { ReferencePicker, ReferenceText } from './Reference';
 import { useScrollLock } from './scrollLock';
@@ -250,7 +250,7 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
   // and a trackpad (Magic Keyboard) would otherwise draw instead of tapping words.
   const tool = choice === 'read' ? 'pen' : choice;
   // Pens the drawn pen stands for, so they aren't shown twice.
-  const drawn: Tool[] = penArt === 'four-colour' ? ['pen', 'black', 'red', 'green'] : penArt === 'fountain' ? ['pen'] : [];
+  const drawn: Tool[] = penArt === 'multi-colour' ? pens.filter((t) => t !== 'highlighter') : penArt === 'fountain' ? ['pen'] : [];
   const onPen = () => {
     if (pencil) return;
     setPencil(true);
@@ -400,7 +400,7 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
           </button>
           {/* The paper style's own pen, drawn (PenArt); its colours are its sliders, so
               only the other tools are left as dots beside it. */}
-          {penArt === 'four-colour' && <FourColourPen choice={choice} choose={setChoice} />}
+          {penArt === 'multi-colour' && <MultiColourPen colours={pens.filter((t) => t !== 'highlighter')} choice={choice} choose={setChoice} />}
           {penArt === 'fountain' && <FountainPen pressed={choice === 'pen'} choose={() => setChoice('pen')} />}
           {pens.filter((t) => !drawn.includes(t)).map((t) => (
             <button key={t} type="button" className="tb-icon" aria-pressed={choice === t} onClick={() => setChoice(t)} aria-label={TOOL_STYLE[t].label} title={TOOL_STYLE[t].label}>

@@ -481,7 +481,8 @@ button:disabled { opacity: 0.35; cursor: default; }
  */
 .pen-art { position: relative; display: inline-block; width: 236px; height: 44px; flex: none; filter: drop-shadow(0 2px 1.5px rgba(0, 0, 0, 0.28)); }
 .pen-art > span { position: absolute; display: block; }
-/* The four-colour ballpoint: brass point, blue cone and barrel, white body, chrome clip. */
+/* The multi-colour ballpoint (Darrell's blue three-colour BIC): brass point, blue cone and
+   barrel, white body, chrome clip. */
 .bic-point { left: 2px; top: 22px; width: 7px; height: 4px; border-radius: 2px 0 0 2px;
   background: linear-gradient(to bottom, #6b4e12, #f1d27b 35%, #b48a2c 70%, #5c430f); }
 .bic-cone { left: 8px; top: 16px; width: 16px; height: 16px; clip-path: polygon(0 34%, 100% 0, 100% 100%, 0 66%);

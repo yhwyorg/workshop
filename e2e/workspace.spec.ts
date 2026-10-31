@@ -55,7 +55,7 @@ test.describe('the look', () => {
     });
 
   test('it starts in the Notebook, even when the device is in dark mode', async ({ browser }, info) => {
-    // Darrell's notebook and four-colour pen, chosen by the family (Sepia before).
+    // Darrell's notebook and three-colour pen, chosen by the family (Sepia before).
     const context = await browser.newContext({ ...info.project.use, colorScheme: 'dark' });
     const page = await context.newPage();
     await page.goto('/#/new');

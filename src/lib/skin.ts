@@ -25,7 +25,7 @@ export const FONTS = {
 } as const;
 export type FontKey = keyof typeof FONTS;
 /** A pen a skin may have drawn in the toolbar, from a fixed set (drawn by the site, never the skin). */
-export const PEN_KINDS = ['none', 'four-colour', 'fountain'] as const;
+export const PEN_KINDS = ['none', 'multi-colour', 'fountain'] as const;
 export type PenKind = (typeof PEN_KINDS)[number];
 
 export interface Skin {
@@ -59,12 +59,12 @@ export interface Skin {
   };
   /**
    * notes is the pen's own colour. red is the second pen (the accent when not given);
-   * black and green, when given, add those pens: a four-colour pen.
+   * black and green, when given, add those pens: a three- or four-colour pen.
    */
   ink: { text: string; notes: string; accent: string; muted: string; red: string; black?: string; green?: string };
   slip: { color: string; ink: string };
   fonts: { scripture: FontKey; notes: FontKey; ui: FontKey };
-  /** The pen drawn in the toolbar: a four-colour ballpoint (its sliders are the pens) or a fountain pen. */
+  /** The pen drawn in the toolbar: a multi-colour ballpoint (its sliders are the pens) or a fountain pen. */
   pen: PenKind;
 }
 
@@ -173,8 +173,8 @@ export function validateSkin(input: unknown): SkinResult {
     fonts: { scripture: font(fonts.scripture, 'fonts.scripture'), notes: font(fonts.notes, 'fonts.notes'), ui: font(fonts.ui, 'fonts.ui') },
     pen: oneOf(s.pen, 'pen', PEN_KINDS, 'none'),
   };
-  // A four-colour pen needs its four colours; without them its sliders would be blank.
-  if (skin.pen === 'four-colour' && !(skin.ink.black && skin.ink.green)) errors.push('pen "four-colour" needs ink.black and ink.green too');
+  // A multi-colour pen needs more than its own colour and red; with no black (or green) it is one slider short of a pen.
+  if (skin.pen === 'multi-colour' && !(skin.ink.black || skin.ink.green)) errors.push('pen "multi-colour" needs ink.black or ink.green too');
 
   // Checked whenever the colors themselves are valid, so a skin with several problems
   // gets them all in one reply, not one round trip to the AI per problem.
@@ -243,7 +243,7 @@ function rules(p: Skin['paper']): string {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-/** The pens a skin offers, in the toolbar's order: a four-colour pen when it names four. */
+/** The pens a skin offers, in the toolbar's order: a multi-colour pen's colours, then the highlighter. */
 export function pensOf(skin: Skin): Tool[] {
   return ['pen', ...(skin.ink.black ? (['black'] as const) : []), 'red', ...(skin.ink.green ? (['green'] as const) : []), 'highlighter'];
 }
@@ -329,7 +329,7 @@ Rules: colors are hex only. ink.text and ink.notes need a contrast of at least 4
 paper.color, as does slip.ink against slip.color; ink.muted needs 3:1. "desk" is the surface
 everything sits on; "paper" is the legal pad; "slip" is the Bible's page beside it. "wear" adds
 age and coffee rings. ink.notes is the pen; ink.red is a second pen; give ink.black and
-ink.green too for a four-colour pen. Pen colours need 3:1 against paper.color.
+ink.green for a three- or four-colour pen. Pen colours need 3:1 against paper.color.
 No CSS, no web addresses, no other keys.
 
 The look I want: `;

@@ -66,12 +66,13 @@ and text that would be hard to read (WCAG contrast). The Paper page gives a prom
 to paste into any AI, and accepts what it writes back.
 
 Everyone starts on **Notebook**, made from photographs of Darrell's spiral notebook and
-four-colour ballpoint (blue, black, red, green); **Notebook, fountain pen** is the same
+his favourite pen, a blue three-colour ballpoint (blue, black, red), drawn in the toolbar
+with a slider for each colour; **Notebook, fountain pen** is the same
 paper with his fountain pen. They use the format's optional settings: dotted rules with
 a solid one every eighth line (`paper.rule`, `paper.every`, drawn by the site as an SVG,
 never by the skin), a DATE/NO. and TITLE box (`paper.header`, three rules tall like the
 title and date in other styles, so ink never moves between styles) and the pen's colours
-(`ink.red`, `ink.black`, `ink.green`; a skin naming all four gets a four-colour pen).
+(`ink.red`, `ink.black`, `ink.green`) and the pen drawn in the toolbar (`pen`).
 
 The paper itself (fibres, mottling, the lit tooth of the surface, the binding and
 the sheets beneath) is drawn by `src/lib/paper.ts` and the stylesheet from a skin's

@@ -4,8 +4,8 @@ import { beginStudy, draw, expect, savedStudies, show, test } from './fixtures';
 /**
  * The Notebook paper styles, from photographs of Darrell's notebook: white pages, dotted
  * rules with a solid one every eighth line, a DATE/NO. and TITLE box, and his pens. The
- * main one has the four-colour ballpoint (blue, black, red, green); the other a fountain
- * pen. The Notebook is where everyone starts.
+ * main one has his favourite, a blue three-colour ballpoint (blue, black, red); the other
+ * a fountain pen. The Notebook is where everyone starts.
  */
 const choose = async (page: Page, name: RegExp) => {
   await page.goto('/#/paper');
@@ -52,31 +52,34 @@ test.describe('the Notebook', () => {
     expect(rules).toContain("height='256'");
   });
 
-  test('has the four-colour pen: blue, black, red and green, each writing in its own colour', async ({ page }, info) => {
+  test('has his three-colour pen: blue, black and red, each writing in its own colour', async ({ page }, info) => {
     noPens(info.project.name);
     await beginStudy(page, 'John', 15);
-    for (const name of ['Pen', 'Black pen', 'Red pen', 'Green pen']) {
+    for (const name of ['Pen', 'Black pen', 'Red pen']) {
       await expect(page.getByRole('toolbar', { name: 'Study' }).getByRole('button', { name, exact: true })).toBeVisible();
     }
-    await page.getByRole('button', { name: 'Green pen', exact: true }).click();
+    // Three colours, not four: the green first drawn isn't on his pen.
+    await expect(page.getByRole('button', { name: 'Green pen', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Black pen', exact: true }).click();
     await draw(page, '.pad-surface', 'pen', [60, 160], [260, 170]);
-    await expect.poll(async () => (await savedStudies(page))[0]?.ink?.pad?.strokes?.[0]?.tool).toBe('green');
-    expect(await page.locator('.pad-surface svg.ink path').evaluate((el) => getComputedStyle(el).fill)).toBe('rgb(29, 122, 60)');
+    await expect.poll(async () => (await savedStudies(page))[0]?.ink?.pad?.strokes?.[0]?.tool).toBe('black');
+    expect(await page.locator('.pad-surface svg.ink path').evaluate((el) => getComputedStyle(el).fill)).toBe('rgb(27, 28, 30)');
   });
 });
 
 test.describe('the pen, drawn in the toolbar', () => {
-  test('the four-colour pen is the colour picker: a colour chosen clicks its slider down', async ({ page }, info) => {
+  test('the three-colour pen is the colour picker: a colour chosen clicks its slider down', async ({ page }, info) => {
     noPens(info.project.name);
     await beginStudy(page, 'John', 15);
-    const pen = page.getByRole('group', { name: 'Four-colour pen' });
+    const pen = page.getByRole('group', { name: 'Three-colour pen' });
     await expect(pen).toBeVisible();
     // Its colours are its sliders, not dots beside it.
     await expect(page.locator('.tb-pens .nib-red')).toHaveCount(0);
-    const green = pen.getByRole('button', { name: 'Green pen', exact: true });
-    await green.click();
-    await expect(green).toHaveAttribute('aria-pressed', 'true');
-    await expect.poll(() => green.locator('.bic-tab').evaluate((el) => getComputedStyle(el).transform)).not.toBe('none');
+    await expect(pen.getByRole('button')).toHaveCount(3);
+    const red = pen.getByRole('button', { name: 'Red pen', exact: true });
+    await red.click();
+    await expect(red).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => red.locator('.bic-tab').evaluate((el) => getComputedStyle(el).transform)).not.toBe('none');
   });
 
   test('the fountain pen style draws its fountain pen, which is its pen', async ({ page }, info) => {

@@ -14,7 +14,7 @@ export const BUILT_IN: Record<string, unknown> = { notebook, 'notebook-fountain'
 export const AUTO = 'auto';
 /**
  * Where everyone starts until they choose otherwise: the family's choice. Darrell's own
- * notebook and four-colour pen (2026-10-31; Sepia before). Anyone who chose a style
+ * notebook and blue three-colour pen (2026-10-31; Sepia before). Anyone who chose a style
  * keeps it: only those who never chose see the change.
  */
 export const DEFAULT = 'notebook';
