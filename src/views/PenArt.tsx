@@ -15,9 +15,10 @@ const COUNT = ['', 'One', 'Two', 'Three', 'Four'];
 export function MultiColourPen({ colours, choice, choose }: { colours: Tool[]; choice: string; choose: (t: Tool) => void }) {
   // The sliders sit across the white body, evenly spaced however many there are.
   const gap = colours.length > 3 ? 24 : 28;
-  const start = 120 + (100 - 14 - gap * (colours.length - 1)) / 2 - 5;
+  const start = 121 + (99 - 14 - gap * (colours.length - 1)) / 2 - 6;
   return (
     <span className="pen-art bic" role="group" aria-label={`${COUNT[colours.length]}-colour pen`}>
+      <span className="pen-shadow" aria-hidden="true" />
       <span className="bic-point" aria-hidden="true" />
       <span className="bic-cone" aria-hidden="true" />
       <span className="bic-barrel" aria-hidden="true" />
@@ -36,7 +37,8 @@ export function MultiColourPen({ colours, choice, choose }: { colours: Tool[]; c
           title={LABEL[tool]}
           onClick={() => choose(tool)}
         >
-          {/* Clicked down: the slider moves toward the point, as the real one does. */}
+          {/* Clicked down: the slider moves toward the point, uncovering its slot. */}
+          <span className="bic-slot" aria-hidden="true" />
           <span className="bic-tab" aria-hidden="true" />
         </button>
       ))}
@@ -47,6 +49,7 @@ export function MultiColourPen({ colours, choice, choose }: { colours: Tool[]; c
 export function FountainPen({ pressed, choose }: { pressed: boolean; choose: () => void }) {
   return (
     <button type="button" className="pen-art fountain" aria-pressed={pressed} aria-label="Pen" title="Pen" onClick={choose}>
+      <span className="pen-shadow" aria-hidden="true" />
       <span className="fp-nib" aria-hidden="true" />
       <span className="fp-section" aria-hidden="true" />
       <span className="fp-barrel" aria-hidden="true" />
