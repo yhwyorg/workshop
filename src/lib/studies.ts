@@ -23,7 +23,8 @@ export const MARKS = ['underline', 'circle', 'box'] as const;
 export type Mark = (typeof MARKS)[number];
 
 /** Pen tools. Colors come from the skin, so ink keeps its meaning (blue writes, red marks) in every look. */
-export const TOOLS = ['pen', 'red', 'pencil', 'highlighter'] as const;
+// "black" and "green" are the other two colours of a four-colour pen (the notebook skins).
+export const TOOLS = ['pen', 'black', 'red', 'green', 'pencil', 'highlighter'] as const;
 export type Tool = (typeof TOOLS)[number];
 
 export interface Stroke {

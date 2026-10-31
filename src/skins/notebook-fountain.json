@@ -1,0 +1,18 @@
+{
+  "format": "workshop-skin/1",
+  "name": "Notebook, fountain pen",
+  "author": "Workshop",
+  "description": "The same white notebook, written in with a fountain pen: blue-black ink, a deep red for a second pen, and gold from the pen's trim.",
+  "dark": false,
+  "desk": { "color": "#c8955c", "grain": 0.35 },
+  "paper": {
+    "color": "#fcfcfa", "lines": "#b3b7ba", "margin": "none", "spacing": 32, "grain": 0.1, "wear": 0,
+    "rule": "dotted", "every": 8, "header": "date-title"
+  },
+  "ink": {
+    "text": "#1f2226", "notes": "#1a2747", "accent": "#86651f", "muted": "#70777d",
+    "red": "#8e1f24"
+  },
+  "slip": { "color": "#f8f8f5", "ink": "#1f2226" },
+  "fonts": { "scripture": "book", "notes": "clean", "ui": "clean" }
+}

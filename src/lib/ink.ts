@@ -4,7 +4,9 @@ import type { Ink, Stroke, Tool } from './studies';
 /** How each tool lays down ink. Colors are skin variables, so a skin can recolor but not repurpose them. */
 export const TOOL_STYLE: Record<Tool, { size: number; thinning: number; color: string; opacity: number; label: string }> = {
   pen: { size: 2.8, thinning: 0.6, color: 'var(--ink-notes)', opacity: 1, label: 'Pen' },
-  red: { size: 2.8, thinning: 0.6, color: 'var(--accent)', opacity: 1, label: 'Red pen' },
+  black: { size: 2.8, thinning: 0.6, color: 'var(--pen-black)', opacity: 1, label: 'Black pen' },
+  red: { size: 2.8, thinning: 0.6, color: 'var(--pen-red)', opacity: 1, label: 'Red pen' },
+  green: { size: 2.8, thinning: 0.6, color: 'var(--pen-green)', opacity: 1, label: 'Green pen' },
   pencil: { size: 2.2, thinning: 0.25, color: 'var(--muted)', opacity: 0.8, label: 'Pencil' },
   highlighter: { size: 18, thinning: 0, color: '#f2d43a', opacity: 0.38, label: 'Highlighter' },
 };
