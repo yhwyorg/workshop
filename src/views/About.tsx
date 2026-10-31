@@ -33,6 +33,12 @@ export default function About() {
         Scripture is from the <a href="https://worldenglish.bible/">World English Bible</a> (public domain), taken
         unchanged from <a href="https://ebible.org/">eBible.org</a>.
       </p>
+      <p>
+        The translations and commentaries under <strong>Compare</strong> come from the{' '}
+        <a href="https://bible.helloao.org/">Free Use Bible API</a>, a chapter at a time. They are in the public domain,
+        except the Tyndale Open Study Notes (© Tyndale House Publishers, CC BY-SA 4.0). Opening one asks that site for the
+        chapter you are reading, so it can see which chapter that is; nothing you write goes with it.
+      </p>
     </article>
   );
 }

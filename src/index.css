@@ -36,6 +36,7 @@
   --bible-w: 560px;
   --notes-w: 460px;
   --notes-pane-w: 520px;
+  --ref-pane-w: 480px;
 }
 
 * { box-sizing: border-box; }
@@ -169,7 +170,36 @@ button:disabled { opacity: 0.35; cursor: default; }
   /* Only the faintest tooth: enough to feel like paper, not enough to look aged. */
   background-color: var(--paper); background-image: var(--paper-wear), var(--paper-texture), var(--paper-tooth);
 }
-.pane-tabs { display: none; }
+/* Tabs for panes that share a place: Bible | reference | Notes on a phone, Notes |
+   reference above the notes elsewhere. Rendered only when there is a choice to make. */
+.pane-switch { grid-area: switch; display: flex; justify-content: center; padding: 10px 0 0; }
+.pane-tabs { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: color-mix(in srgb, var(--slip-ink) 7%, transparent); }
+.pane-tabs button { min-height: 36px; min-width: 96px; border: 0; border-radius: 9px; background: none; font-weight: 600; color: var(--muted); }
+.pane-tabs button[aria-selected='true'] { background: var(--slip); color: var(--slip-ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+
+/* A reference beside the Bible. */
+.ref-pane { grid-area: ref; border-left: 1px solid var(--hairline); }
+.ref-col { width: min(var(--notes-w), 100% - 40px); margin: 0 auto; }
+.ref-head { display: flex; align-items: center; justify-content: center; gap: 4px; margin: 0 0 4px; }
+.ref-head .book-name { margin: 0; }
+.ref-close { min-width: 36px; height: 36px; font-size: 1.3rem; color: var(--muted); }
+.ref-place { margin: 0 0 18px; text-align: center; font-weight: 600; }
+.ref-text { font-family: var(--font-scripture); font-size: 1.05rem; line-height: 1.7; color: var(--slip-ink); }
+.ref-text p { margin: 0 0 0.9em; }
+.ref-text.commentary { font-size: 1rem; line-height: 1.65; }
+.ref-heading { margin: 1.4em 0 0.4em; font-family: var(--font-ui); font-size: 0.82rem; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); }
+.ref-text > :first-child .ref-heading, .ref-text > .ref-heading:first-child { margin-top: 0; }
+/* Twelve choices; at the chapter picker's height the last hid below its edge.
+   Doubled class: .chapter-picker comes later in this file and would win a tie. */
+.chapter-picker.ref-picker { width: min(560px, calc(100vw - 24px)); max-height: min(560px, 72vh); }
+.ref-picker .picker-head { margin: 4px 6px 6px; font-size: 0.78rem; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.ref-choices { list-style: none; margin: 0 0 10px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 2px; }
+.ref-choices button { all: unset; box-sizing: border-box; display: block; width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 10px; cursor: pointer; color: var(--slip-ink); }
+.ref-choices button:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); }
+.ref-choices button:focus-visible { outline: 2px solid var(--accent); }
+.ref-choices button[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 12%, transparent); font-weight: 600; }
+.ref-scope { color: var(--muted); font-size: 0.86em; font-weight: 400; }
+.tb-compare svg { width: 20px; height: 20px; fill: none; stroke: var(--slip-ink); stroke-width: 1.7; }
 
 .bible-col { width: min(var(--bible-w), 100% - 40px); margin: 0 auto; animation: turn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .book-name { text-align: center; margin: 0 0 22px; font-family: var(--font-scripture); font-variant: small-caps; letter-spacing: 0.14em; color: var(--muted); }
@@ -310,24 +340,36 @@ button:disabled { opacity: 0.35; cursor: default; }
 
 /* ---------- Narrower screens ---------- */
 
+/* A wide screen has room for all three: the Bible, the reference, the notes. */
+@media (min-width: 1600px) {
+  .workspace.has-ref { grid-template-columns: minmax(0, 1fr) var(--ref-pane-w) var(--notes-pane-w); grid-template-areas: 'bible ref notes'; }
+}
+/* Otherwise the reference takes the notes' place, a tab away from them. */
+@media (max-width: 1599px) {
+  .workspace.has-ref { grid-template-rows: auto minmax(0, 1fr); grid-template-areas: 'bible switch' 'bible side'; }
+  .workspace.has-ref .pane-switch { border-left: 1px solid var(--hairline); background-color: var(--paper); }
+  .workspace.has-ref .notes-pane, .workspace.has-ref .ref-pane { grid-area: side; padding-top: 22px; }
+  .workspace.has-ref:not(.show-ref) .ref-pane, .workspace.has-ref.show-ref .notes-pane { display: none; }
+  .workspace.has-ref.show-ref .pane-switch { background-color: transparent; }
+}
+
 /* An upright iPad: the notes under the Bible, both always in view. */
 @media (max-width: 999px) {
   .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 42%; grid-template-areas: 'bible' 'notes'; }
   .notes-pane { border-left: 0; border-top: 1px solid var(--hairline); padding-top: 18px; }
+  .workspace.has-ref { grid-template-rows: minmax(0, 1fr) auto 42%; grid-template-areas: 'bible' 'switch' 'side'; }
+  .workspace.has-ref .pane-switch { border-left: 0; border-top: 1px solid var(--hairline); }
+  .workspace.has-ref .notes-pane, .workspace.has-ref .ref-pane { border: 0; padding-top: 14px; }
 }
 /* A phone: one pane at a time, a tap apart. */
 @media (max-width: 599px) {
   main { padding: 72px 14px 64px; }
   .testaments { grid-template-columns: 1fr; }
-  .workspace { grid-template-rows: auto minmax(0, 1fr); grid-template-areas: 'tabs' 'pane'; }
-  .pane-tabs {
-    grid-area: tabs; display: flex; gap: 2px; justify-self: center; margin: 10px 0 0; padding: 3px; border-radius: 12px;
-    background: color-mix(in srgb, var(--slip-ink) 7%, transparent);
-  }
-  .pane-tabs button { min-height: 36px; min-width: 96px; border: 0; border-radius: 9px; background: none; font-weight: 600; color: var(--muted); }
-  .pane-tabs button[aria-selected='true'] { background: var(--slip); color: var(--slip-ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
-  .bible-pane, .notes-pane { grid-area: pane; border: 0; padding-top: 20px; }
-  .workspace.show-bible .notes-pane, .workspace.show-notes .bible-pane { display: none; }
+  .workspace, .workspace.has-ref { grid-template-rows: auto minmax(0, 1fr); grid-template-areas: 'switch' 'pane'; }
+  .workspace .pane-switch, .workspace.has-ref .pane-switch { border: 0; background: none; }
+  .pane-tabs button { min-width: 88px; }
+  .workspace .pane, .workspace.has-ref .pane { grid-area: pane; border: 0; padding-top: 20px; }
+  .workspace:not(.show-bible) .bible-pane, .workspace:not(.show-notes) .notes-pane, .workspace:not(.show-ref) .ref-pane { display: none; }
   .scripture { font-size: 1.1rem; }
   .tb-pens-sep, .tb-pens { display: none; }
 }
@@ -342,7 +384,8 @@ button:disabled { opacity: 0.35; cursor: default; }
 
 @media print {
   html, body { background: #fff !important; }
-  .menu-button, .toolbar, .chapter-picker, .pane-tabs, .alert, .ink-note { display: none !important; }
+  /* The reference is for the desk, not the printout: it is someone else's text. */
+  .menu-button, .toolbar, .chapter-picker, .pane-switch, .ref-pane, .alert, .ink-note { display: none !important; }
   main { padding: 0; }
   .workspace { position: static; display: block; }
   .pane { overflow: visible; padding: 0; background: #fff !important; border: 0 !important; }

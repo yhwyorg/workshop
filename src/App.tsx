@@ -3,6 +3,7 @@ import type { Lengths } from './lib/refs';
 import { href, useRoute } from './lib/route';
 import { applySkin, validateSkin, type Skin } from './lib/skin';
 import { exportStudy, importStudy, load, newStudy, save, STORE_KEY, type KV, type Loaded, type Store, type Study } from './lib/studies';
+import { useMediaQuery } from './lib/media';
 import { loadLengths } from './lib/text';
 import { AUTO, BUILT_IN, DARK, DEFAULT, LIGHT } from './skins';
 import About from './views/About';
@@ -257,17 +258,6 @@ function Menu({ current, close, add, remove }: {
       </nav>
     </div>
   );
-}
-
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => matchMedia(query).matches);
-  useEffect(() => {
-    const m = matchMedia(query);
-    const on = () => setMatches(m.matches);
-    m.addEventListener('change', on);
-    return () => m.removeEventListener('change', on);
-  }, [query]);
-  return matches;
 }
 
 /** Keeps unreadable data under another key, so starting fresh never destroys it. */

@@ -1,11 +1,14 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BY_CODE } from '../lib/books';
 import { TOOL_STYLE } from '../lib/ink';
+import { useMediaQuery } from '../lib/media';
+import { keepReference, savedReference, type Reference } from '../lib/reference';
 import { chapterOf, key, parsePassage, verseOf, type Lengths, type Passage, type VerseKey } from '../lib/refs';
 import { href } from '../lib/route';
 import { nextMark, SHEETS, type Ink, type Mark, type Sheet, type Study, type Tool } from '../lib/studies';
 import { loadBook } from '../lib/text';
 import InkSurface from './Ink';
+import { ReferencePicker, ReferenceText } from './Reference';
 
 /** Headings for the first version's sheets, shown only where something was written on them. */
 const OLD_SHEETS: Partial<Record<Sheet, string>> = {
@@ -32,6 +35,10 @@ const fine = () => typeof matchMedia === 'function' && matchMedia('(pointer: fin
  * A study: the Bible and the notes, each in its own pane that scrolls on its own, and
  * a toolbar floating over both. The screen itself never scrolls. Side by side when
  * there is room; the notes under the Bible on an upright iPad; a tap apart on a phone.
+ *
+ * A reference (another translation, a commentary) gets a pane of its own on a wide
+ * screen. Elsewhere it shares the notes' place, a tap away from them, so the Bible's
+ * pane keeps its size and the ink written on it stays where it was written.
  */
 export default function StudyView({ study, lengths, update, openMenu }: {
   study: Study | undefined;
@@ -51,8 +58,14 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   const [book, setBook] = useState<Book>({ state: 'loading' });
   // On a laptop the mouse starts as a pointer; on an iPad the Pencil starts as a pen.
   const [choice, setChoice] = useState<Choice>(() => (fine() ? 'read' : 'pen'));
-  const [pane, setPane] = useState<'bible' | 'notes'>('bible');
+  // Which pane is in front where they can't all be: a phone shows one, a laptop or
+  // iPad shows the Bible and one of the other two.
+  const [pane, setPane] = useState<'bible' | 'notes' | 'ref'>('bible');
+  const [reference, setReference] = useState<Reference | null>(savedReference);
   const [jump, setJump] = useState(false);
+  const [comparing, setComparing] = useState(false);
+  const phone = useMediaQuery('(max-width: 599px)');
+  const wide = useMediaQuery('(min-width: 1600px)');
   // What each change of ink replaced, newest last, so Undo can put it back.
   const [history, setHistory] = useState<{ surface: string; before: Ink | undefined }[]>([]);
   const biblePane = useRef<HTMLElement>(null);
@@ -127,6 +140,18 @@ export default function StudyView({ study, lengths, update, openMenu }: {
     setChapter(c);
     setJump(false);
   };
+  const compare = (r: Reference | null) => {
+    setReference(r);
+    keepReference(r);
+    setPane(r ? 'ref' : 'bible');
+    setComparing(false);
+  };
+  // The tabs a reader needs to reach every pane: all three on a phone; on a laptop or
+  // iPad, only the notes and the reference that share a place; none on a wide screen.
+  const tabs = (phone ? (['bible', 'ref', 'notes'] as const) : reference && !wide ? (['notes', 'ref'] as const) : [])
+    .filter((t) => t !== 'ref' || reference);
+  const label = { bible: 'Bible', notes: 'Notes', ref: reference?.short ?? '' };
+  const front = !phone && pane === 'bible' ? 'notes' : pane;
   // The Pencil always writes with the chosen tool ("read" leaves it on the pen). A mouse
   // writes only on a laptop with a pen chosen: on an iPad the default tool is the pen,
   // and a trackpad (Magic Keyboard) would otherwise draw instead of tapping words.
@@ -134,15 +159,26 @@ export default function StudyView({ study, lengths, update, openMenu }: {
   const pen = { tool, mouseDraws: fine() && choice !== 'read' };
 
   return (
-    <div className={`workspace show-${pane}`}>
-      <div className="pane-tabs" role="tablist" aria-label="Show">
-        <button type="button" role="tab" aria-selected={pane === 'bible'} onClick={() => setPane('bible')}>Bible</button>
-        <button type="button" role="tab" aria-selected={pane === 'notes'} onClick={() => setPane('notes')}>Notes</button>
-      </div>
+    <div className={`workspace show-${front}${reference ? ' has-ref' : ''}`}>
+      {tabs.length > 0 && (
+        <div className="pane-switch">
+          <div className="pane-tabs" role="tablist" aria-label="Show">
+            {tabs.map((t) => (
+              <button key={t} type="button" role="tab" aria-selected={front === t} onClick={() => setPane(t)}>{label[t]}</button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <section ref={biblePane} className="pane bible-pane" role="region" aria-label="Bible">
         <BibleText key={ch} passage={passage} chapter={ch} name={name} book={book} marks={study.marks} onMark={mark} ink={study.ink?.[`bible:${ch}`]} setInk={setInk(`bible:${ch}`)} {...pen} />
       </section>
+
+      {reference && (
+        <section className="pane ref-pane" role="region" aria-label={reference.name}>
+          <ReferenceText reference={reference} book={passage.book} bookName={name} chapter={ch} close={() => compare(null)} />
+        </section>
+      )}
 
       <section className="pane notes-pane" role="region" aria-label="Your notes">
         <Notes study={study} update={update} ink={study.ink?.pad} setInk={setInk('pad')} {...pen} />
@@ -152,6 +188,8 @@ export default function StudyView({ study, lengths, update, openMenu }: {
       <div className="print-lines" aria-hidden="true">
         {Array.from({ length: 36 }, (_, i) => <span key={i} />)}
       </div>
+
+      {comparing && <ReferencePicker current={reference} choose={compare} />}
 
       {jump && (
         <div className="chapter-picker" role="dialog" aria-label={`Chapters of ${name}`}>
@@ -171,8 +209,15 @@ export default function StudyView({ study, lengths, update, openMenu }: {
         </button>
         <span className="tb-sep" aria-hidden="true" />
         <button type="button" className="tb-icon" onClick={() => go(ch - 1)} disabled={ch <= 1} aria-label="Previous chapter">‹</button>
-        <button type="button" className="tb-place" onClick={() => setJump((j) => !j)} aria-expanded={jump}>{name} {ch}</button>
+        <button type="button" className="tb-place" onClick={() => { setJump((j) => !j); setComparing(false); }} aria-expanded={jump}>{name} {ch}</button>
         <button type="button" className="tb-icon" onClick={() => go(ch + 1)} disabled={ch >= chapters} aria-label="Next chapter">›</button>
+        <button
+          type="button" className="tb-icon tb-compare" onClick={() => { setComparing((c) => !c); setJump(false); }} aria-expanded={comparing}
+          aria-label="Compare" title="Compare with another translation or a commentary"
+        >
+          {/* Two columns side by side. */}
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="7" height="14" rx="1.5" /><rect x="13.5" y="5" width="7" height="14" rx="1.5" /></svg>
+        </button>
         <span className="tb-sep tb-pens-sep" aria-hidden="true" />
         <span className="tb-pens" role="group" aria-label="Pens">
           <button type="button" className="tb-icon tb-read" aria-pressed={choice === 'read'} onClick={() => setChoice('read')} aria-label="Read" title="Read: click words to mark them">
