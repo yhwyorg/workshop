@@ -66,6 +66,17 @@ test.describe('opening a verse', () => {
     await expect(said).toContainText('Matthew Henry · from verse 1');
   });
 
+  test('a commentary whose notes begin later gives its word on the chapter instead', async ({ page }) => {
+    // JFB's notes on Psalm 22 begin at verse 2; what it says of verse 1 is in its
+    // introduction to the psalm. "Nothing on this verse" was true but unhelpful.
+    await recordedApi(page);
+    await beginStudy(page, 'Psalms', 22);
+    await openVerse(page, 1);
+    const said = panel(page, 'Psalms 22:1').getByRole('region', { name: 'From the commentaries' });
+    await expect(said).toContainText('Jamieson, Fausset & Brown · on the chapter');
+    await expect(said).toContainText('Aijeleth Shahar');
+  });
+
   test('when the commentaries cannot be reached it says so, and the cross-references still show', async ({ page, errors }) => {
     await recordedApi(page, { down: true });
     await beginStudy(page, 'John', 15);
