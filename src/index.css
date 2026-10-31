@@ -279,8 +279,11 @@ button:disabled { opacity: 0.35; cursor: default; }
 .verse-panel {
   position: fixed; left: 50%; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 66px); transform: translateX(-50%); z-index: 17;
   display: flex; flex-direction: column; width: min(680px, calc(100vw - 24px)); max-height: min(72vh, 760px);
-  border-radius: 18px; background: var(--glass); border: 1px solid var(--hairline); box-shadow: var(--float-shadow);
-  -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5);
+  border-radius: 18px; border: 1px solid var(--hairline); box-shadow: var(--float-shadow);
+  /* Opaque: this is read from, at length. On the glass the toolbar uses, the chapter
+     behind showed through wherever the blur didn't render (seen in WebKit) and Hebrew
+     and English were overprinted; at 96% a ghost of it still showed. */
+  background: var(--slip);
   animation: rise 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .vp-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 8px 8px 4px 16px; }
@@ -302,6 +305,31 @@ button:disabled { opacity: 0.35; cursor: default; }
 .vp-note p { margin: 0 0 8px; font-family: var(--font-scripture); line-height: 1.6; }
 .vp-who { font-family: var(--font-ui) !important; font-size: 0.8rem; font-weight: 650; color: var(--accent); }
 .vp-credit { margin: 6px 0 0; font-size: 0.76rem; color: var(--muted); }
+
+/* The verse in Greek or Hebrew: each word a small stack of the word, how it sounds and
+   what it means, in the language's own direction. */
+.og-words { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0 0 8px; }
+.og-word {
+  all: unset; box-sizing: border-box; display: inline-grid; justify-items: center; gap: 1px; min-width: 44px; padding: 6px 8px;
+  border-radius: 10px; cursor: pointer; text-align: center;
+}
+.og-word:hover { background: color-mix(in srgb, var(--slip-ink) 6%, transparent); }
+.og-word:focus-visible { outline: 2px solid var(--accent); }
+.og-word[aria-expanded='true'] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+/* Greek and Hebrew from the system's fonts: Literata covers Greek; Hebrew falls back to
+   the platform's (SBL Hebrew, Ezra SIL, New Peninim and Arial Hebrew all have points). */
+.og-text { font-family: var(--font-scripture), 'SBL Hebrew', 'Ezra SIL', 'Times New Roman', serif; font-size: 1.3rem; line-height: 1.3; color: var(--slip-ink); }
+.og-words.hebrew .og-text { font-size: 1.55rem; }
+.og-tr { font-size: 0.74rem; font-style: italic; color: var(--muted); }
+.og-gl { font-size: 0.78rem; color: var(--slip-ink); max-width: 9em; }
+.og-entry { margin: 0 0 10px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--slip-ink) 4%, transparent); display: grid; gap: 12px; }
+.og-part p { margin: 0 0 4px; }
+.og-head { font-size: 1rem; }
+.og-lemma { font-family: var(--font-scripture), 'SBL Hebrew', 'Ezra SIL', serif; font-size: 1.35rem; }
+.og-num { font-size: 0.82rem; font-weight: 650; color: var(--accent); }
+.og-parse { font-size: 0.86rem; color: var(--muted); }
+.og-def { font-family: var(--font-scripture); line-height: 1.55; }
+.og-kjv { font-size: 0.84rem; color: var(--muted); }
 /* A study of a few verses keeps the rest of the chapter for context, set back. */
 .scripture.partial .v-part:not(.in-study) { opacity: 0.45; }
 .translation { margin: 28px 0 0; text-align: center; font-size: 0.78rem; color: var(--muted); letter-spacing: 0.04em; }

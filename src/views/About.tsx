@@ -45,6 +45,15 @@ export default function About() {
         to it, ranked by their votes. They are kept on this site, so opening a verse asks nothing of anyone; the
         commentaries beside them come from the Free Use Bible API, as above.
       </p>
+      <p>
+        An opened verse also shows its Greek or Hebrew, word by word: the SBL Greek New Testament (CC BY 4.0, Society of
+        Biblical Literature and Logos) and the Westminster Leningrad Codex, with glosses and grammar from Biblica’s{' '}
+        <a href="https://github.com/Clear-Bible/macula-greek/">MACULA Greek</a> and{' '}
+        <a href="https://github.com/Clear-Bible/macula-hebrew/">MACULA Hebrew</a> (CC BY 4.0), the Berean glosses (public
+        domain) and Cherith glosses (CC BY 4.0), and Strong’s dictionaries from{' '}
+        <a href="https://github.com/openscriptures/strongs">Open Scriptures</a> (CC BY-SA). These are kept on this site
+        too. The original is shown as itself, not matched word for word to the English.
+      </p>
     </article>
   );
 }
