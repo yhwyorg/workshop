@@ -1,0 +1,12 @@
+{
+  "format": "workshop-skin/1",
+  "name": "Chalkboard",
+  "author": "Workshop",
+  "description": "A slate board in a wooden frame, for working a passage out in front of a class.",
+  "dark": true,
+  "desk": { "color": "#6d4c2f", "grain": 0.6 },
+  "paper": { "color": "#2f3d33", "lines": "none", "margin": "none", "spacing": 34, "grain": 0.5, "wear": 0.2 },
+  "ink": { "text": "#f2f0e6", "notes": "#f6e27a", "accent": "#f2a7a0", "muted": "#b9c2b5" },
+  "slip": { "color": "#3a4a3f", "ink": "#f2f0e6" },
+  "fonts": { "scripture": "chalk", "notes": "chalk", "ui": "clean" }
+}

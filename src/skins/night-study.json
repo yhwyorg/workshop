@@ -1,0 +1,12 @@
+{
+  "format": "workshop-skin/1",
+  "name": "Night Study",
+  "author": "Workshop",
+  "description": "A dark pad for late Saturday nights.",
+  "dark": true,
+  "desk": { "color": "#0f0e0c", "grain": 0.3 },
+  "paper": { "color": "#1f1d1a", "lines": "#36322b", "margin": "#5a2f2b", "spacing": 32, "grain": 0.25, "wear": 0 },
+  "ink": { "text": "#ece6da", "notes": "#a9c4ec", "accent": "#e0b25c", "muted": "#a69e90" },
+  "slip": { "color": "#2b2823", "ink": "#ece6da" },
+  "fonts": { "scripture": "book", "notes": "hand", "ui": "clean" }
+}
