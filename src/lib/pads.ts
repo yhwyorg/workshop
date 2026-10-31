@@ -14,6 +14,27 @@ export type Sheet = (typeof SHEETS)[number];
 export const MARKS = ['underline', 'circle', 'box'] as const;
 export type Mark = (typeof MARKS)[number];
 
+/** Pen tools. Colors come from the skin, so ink keeps its meaning (blue writes, red marks) in every look. */
+export const TOOLS = ['pen', 'red', 'pencil', 'highlighter'] as const;
+export type Tool = (typeof TOOLS)[number];
+
+export interface Stroke {
+  tool: Tool;
+  /** x, y, pressure, x, y, pressure, … in CSS pixels from the surface's top left. */
+  pts: number[];
+}
+
+/** Ink on one surface: the passage slip, or one sheet. */
+export interface Ink {
+  /**
+   * Surface width when the ink was written. Text reflows when the width changes (an
+   * iPad turned sideways), so ink only lines up with the words at this width; the
+   * page says so rather than leaving ink floating over the wrong words unexplained.
+   */
+  width: number;
+  strokes: Stroke[];
+}
+
 export interface Pad {
   id: string;
   title: string;
@@ -24,6 +45,8 @@ export interface Pad {
   notes: Partial<Record<Sheet, string>>;
   /** "verseKey:wordIndex" -> mark. */
   marks: Record<string, Mark>;
+  /** Handwriting by surface ("passage", "sheet:observe", …). Absent on pads with none. */
+  ink?: Record<string, Ink>;
 }
 
 export interface Store {
@@ -83,6 +106,15 @@ function checkPad(p: unknown, where: string): asserts p is Pad {
     if (!SHEETS.includes(k as Sheet) || typeof v !== 'string') throw new Error(`${where} has an unknown sheet "${k}"`);
   }
   for (const v of Object.values(x.marks)) if (!MARKS.includes(v)) throw new Error(`${where} has an unknown mark "${v}"`);
+  for (const [surface, ink] of Object.entries(x.ink ?? {})) {
+    const ok =
+      typeof ink?.width === 'number' &&
+      Array.isArray(ink.strokes) &&
+      ink.strokes.every(
+        (st) => TOOLS.includes(st?.tool) && Array.isArray(st.pts) && st.pts.length % 3 === 0 && st.pts.every((n) => typeof n === 'number' && Number.isFinite(n)),
+      );
+    if (!ok) throw new Error(`${where} has damaged ink on "${surface}"`);
+  }
 }
 
 export function newPad(passage: string, title: string, now = new Date()): Pad {

@@ -55,6 +55,22 @@ describe('pad files', () => {
   ])('refuses %s', (text, msg) => expect(() => importPad(text)).toThrow(msg));
 });
 
+describe('ink', () => {
+  it('round-trips through a pad file', () => {
+    const pad = { ...newPad('Ps 23', 'Shepherd'), ink: { passage: { width: 740, strokes: [{ tool: 'pen' as const, pts: [10, 12, 0.5, 14, 15, 0.6] }] } } };
+    expect(importPad(exportPad(pad)).ink).toEqual(pad.ink);
+  });
+
+  it.each([
+    ['an unknown tool', { tool: 'laser', pts: [1, 2, 0.5] }],
+    ['points not in x,y,pressure triples', { tool: 'pen', pts: [1, 2] }],
+    ['a non-number point', { tool: 'pen', pts: [1, 'x', 0.5] }],
+  ])('refuses %s rather than drawing garbage', (_, stroke) => {
+    const pad = { ...newPad('Ps 23', 'Shepherd'), ink: { passage: { width: 700, strokes: [stroke] } } };
+    expect(() => importPad(JSON.stringify({ format: 'workshop-pad/1', pad }))).toThrow(/damaged ink/);
+  });
+});
+
 describe('word marks', () => {
   it('cycle underline, circle, box, then off', () => {
     expect([undefined, 'underline', 'circle', 'box'].map((m) => nextMark(m as never))).toEqual(['underline', 'circle', 'box', undefined]);

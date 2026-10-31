@@ -218,6 +218,32 @@ main { padding: 8px 16px 64px; }
 
 .print-notes, .print-lines { display: none; }
 
+/* ---------- Ink ---------- */
+
+.ink-surface { position: relative; }
+.ink { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+/* With the mouse as a pen, the cursor says so; words and notes stay clickable when it is off. */
+.ink-surface.mouse-pen, .ink-surface.mouse-pen .word, .ink-surface.mouse-pen .notes { cursor: crosshair; }
+.ink-note { position: relative; margin: 6px 0 0; font-size: 0.8rem; color: var(--accent); }
+/* The notes surface spans the sheet's full width, as the ruled lines do. */
+.notes-surface { margin: 0 -28px 0 calc(var(--text-x) * -1); }
+.notes-surface .notes { width: 100%; margin: 0; overflow: hidden; resize: none; }
+
+.pen-bar {
+  position: sticky; bottom: 12px; z-index: 5; max-width: 860px; margin: 18px auto 0; display: flex; flex-wrap: wrap; gap: 6px;
+  align-items: center; padding: 8px 10px; border-radius: 10px;
+  background: color-mix(in srgb, var(--desk) 88%, #000); color: var(--desk-ink); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+.pen-bar button { background: transparent; color: var(--desk-ink); border-color: transparent; }
+.pen-bar button[aria-pressed='true'] { background: color-mix(in srgb, var(--desk-ink) 18%, transparent); border-color: var(--desk-ink); }
+.pen-bar button:disabled { opacity: 0.45; cursor: default; }
+.nib { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; }
+.nib-pen { background: var(--ink-notes); }
+.nib-red { background: var(--accent); }
+.nib-pencil { background: var(--muted); }
+.nib-highlighter { background: #f2d43a; border-radius: 2px; }
+.mouse-toggle { display: inline-flex; gap: 6px; align-items: center; margin-left: auto; font-size: 0.9rem; }
+
 /* ---------- Skins ---------- */
 
 .skins-page .intro, .skins-page .make { max-width: 860px; }
@@ -256,6 +282,7 @@ main { padding: 8px 16px 64px; }
   :root { --margin-x: 34px; --text-x: 46px; }
   .sheet { padding-right: 16px; }
   .notes { width: calc(100% + var(--text-x) + 16px); margin-right: -16px; padding-right: 16px; }
+  .notes-surface { margin-right: -16px; }
   .topbar { flex-wrap: wrap; }
 }
 

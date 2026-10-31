@@ -12,6 +12,7 @@
     "text": "node scripts/build-text.mjs"
   },
   "dependencies": {
+    "perfect-freehand": "1.2.3",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

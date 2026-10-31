@@ -1,8 +1,10 @@
-import { Fragment, useEffect, useState } from 'react';
-import { SHEETS, exportPad, nextMark, type Mark, type Pad, type Sheet } from '../lib/pads';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { TOOL_STYLE } from '../lib/ink';
+import { SHEETS, TOOLS, exportPad, nextMark, type Ink, type Mark, type Pad, type Sheet } from '../lib/pads';
 import { chapterOf, parsePassage, verseOf, versesIn, type Lengths, type VerseKey } from '../lib/refs';
 import { href } from '../lib/route';
 import { loadBook } from '../lib/text';
+import InkSurface, { type PenTool } from './Ink';
 
 const SHEET_LABEL: Record<Sheet, { name: string; hint: string }> = {
   observe: { name: 'Observe', hint: 'What do you see? Repeated words, the verbs, who is speaking, where and when…' },
@@ -27,6 +29,21 @@ export default function PadView({ pad, lengths, update, remove }: {
   const [sheet, setSheet] = useState<Sheet>('observe');
   const [text, setText] = useState<Text>({ state: 'loading' });
   const [printing, setPrinting] = useState<'notes' | 'handwriting'>('notes');
+  const [tool, setTool] = useState<PenTool>('pen');
+  const [mouseDraws, setMouseDraws] = useState(false);
+  // What each change of ink replaced, newest last, so Undo can put it back.
+  const [history, setHistory] = useState<{ surface: string; before: Ink | undefined }[]>([]);
+  const notes = useRef<HTMLTextAreaElement>(null);
+
+  // The notes grow with what is written instead of scrolling inside themselves, so
+  // ink written over a sheet stays over the words it was written beside.
+  const body = pad?.notes[sheet] ?? '';
+  useLayoutEffect(() => {
+    const t = notes.current;
+    if (!t) return;
+    t.style.height = 'auto';
+    t.style.height = `${t.scrollHeight}px`;
+  }, [body, sheet]);
 
   useEffect(() => {
     if (pad) document.title = `${pad.title} · Sermon Workshop`;
@@ -70,6 +87,22 @@ export default function PadView({ pad, lengths, update, remove }: {
       else delete marks[id];
       return { ...p, marks };
     });
+
+  const setInk = (surface: string) => (ink: Ink) => {
+    setHistory((h) => [...h.slice(-49), { surface, before: pad.ink?.[surface] }]);
+    update(pad.id, (p) => ({ ...p, ink: { ...p.ink, [surface]: ink } }));
+  };
+  const undo = () => {
+    const last = history.at(-1);
+    if (!last) return;
+    setHistory((h) => h.slice(0, -1));
+    update(pad.id, (p) => {
+      const ink = { ...p.ink };
+      if (last.before) ink[last.surface] = last.before;
+      else delete ink[last.surface];
+      return { ...p, ink };
+    });
+  };
 
   const download = () => {
     const a = document.createElement('a');
@@ -119,7 +152,7 @@ export default function PadView({ pad, lengths, update, remove }: {
           />
           <p className="pad-passage">{pad.passage} <span className="muted">· World English Bible</span></p>
 
-          <div className="slip passage-slip">
+          <InkSurface className="slip passage-slip" ink={pad.ink?.passage} onChange={setInk('passage')} tool={tool} mouseDraws={mouseDraws}>
             {text.state === 'loading' ? (
               <p className="muted">Opening the text…</p>
             ) : text.state === 'failed' ? (
@@ -127,8 +160,10 @@ export default function PadView({ pad, lengths, update, remove }: {
             ) : (
               <Passage verses={text.verses} marks={pad.marks} onMark={mark} />
             )}
-            <p className="slip-hint no-print">Tap a word to underline it; tap again to circle it, again to box it.</p>
-          </div>
+            <p className="slip-hint no-print">
+              Tap a word to underline it; tap again to circle it, again to box it. Write anywhere with an Apple Pencil.
+            </p>
+          </InkSurface>
 
           <div className="sheet-tabs no-print" role="tablist">
             {SHEETS.map((s) => (
@@ -137,14 +172,24 @@ export default function PadView({ pad, lengths, update, remove }: {
               </button>
             ))}
           </div>
-          <textarea
-            className="notes hand no-print"
-            value={pad.notes[sheet] ?? ''}
-            placeholder={SHEET_LABEL[sheet].hint}
-            onChange={(e) => update(pad.id, (p) => ({ ...p, notes: { ...p.notes, [sheet]: e.target.value } }))}
-            aria-label={`${SHEET_LABEL[sheet].name} notes`}
-            rows={14}
-          />
+          <InkSurface
+            key={sheet}
+            className="notes-surface no-print"
+            ink={pad.ink?.[`sheet:${sheet}`]}
+            onChange={setInk(`sheet:${sheet}`)}
+            tool={tool}
+            mouseDraws={mouseDraws}
+          >
+            <textarea
+              ref={notes}
+              className="notes hand"
+              value={body}
+              placeholder={SHEET_LABEL[sheet].hint}
+              onChange={(e) => update(pad.id, (p) => ({ ...p, notes: { ...p.notes, [sheet]: e.target.value } }))}
+              aria-label={`${SHEET_LABEL[sheet].name} notes`}
+              rows={14}
+            />
+          </InkSurface>
 
           {/* Print only: every sheet with notes, in order. */}
           <div className="print-notes">
@@ -160,6 +205,19 @@ export default function PadView({ pad, lengths, update, remove }: {
           </div>
         </div>
       </section>
+
+      <div className="pen-bar no-print" role="toolbar" aria-label="Pen">
+        {TOOLS.map((t) => (
+          <button key={t} type="button" aria-pressed={tool === t} onClick={() => setTool(t)} title={TOOL_STYLE[t].label}>
+            <span className={`nib nib-${t}`} aria-hidden="true" /> {TOOL_STYLE[t].label}
+          </button>
+        ))}
+        <button type="button" aria-pressed={tool === 'eraser'} onClick={() => setTool('eraser')}>Eraser</button>
+        <button type="button" onClick={undo} disabled={!history.length}>Undo</button>
+        <label className="mouse-toggle" title="Apple Pencil always writes. Turn this on to write with a mouse or trackpad too.">
+          <input type="checkbox" checked={mouseDraws} onChange={(e) => setMouseDraws(e.target.checked)} /> Mouse writes
+        </label>
+      </div>
     </article>
   );
 }
