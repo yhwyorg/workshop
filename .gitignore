@@ -7,3 +7,4 @@ dist
 # Playwright test output
 test-results/
 playwright-report/
+test-results-all/

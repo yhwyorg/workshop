@@ -74,14 +74,33 @@ local_resource(
     labels=['run'],
 )
 
-# Browser tests: WebKit at iPad sizes (the engine iPad Safari uses), a phone, and
-# Chromium on a desktop. They reuse "prod" rather than starting their own server.
+# Browser tests on every change: Chromium on a desktop and WebKit at iPad landscape
+# (the engine iPad Safari uses). They reuse "prod" rather than starting their own server.
+#
+# Not all four devices on every save: on this Windows machine Playwright's WebKit runs
+# each test several times slower than Chromium (about 22s each, measured alone), and
+# with three WebKit devices the full run grew to 10-11 minutes for 284 tests and timed
+# out under its own load (a button "never stable" because WebKit drew no frames). Two
+# devices keep the loop short; the full matrix is "browser-all" below, and CI runs it
+# on every pull request, where it is reliable.
 local_resource(
     'browser',
-    cmd='npx playwright test',
+    cmd='npx playwright test --project=desktop --project=ipad-landscape',
     deps=['e2e', 'playwright.config.ts', 'dist'],
     # After the cheaper checks: a type error or failing unit test is reported in
     # seconds, and the browsers do not compete with them for the CPU.
     resource_deps=['prod', 'typecheck', 'lint', 'unit'],
+    labels=['checks'],
+)
+
+# All four devices (adds iPad portrait and the phone). Run from the Tilt UI before
+# opening a pull request that changes layout. Its own output folder, so it can't
+# collide with the run above.
+local_resource(
+    'browser-all',
+    cmd='npx playwright test --output=test-results-all',
+    trigger_mode=TRIGGER_MODE_MANUAL,
+    auto_init=False,
+    resource_deps=['prod'],
     labels=['checks'],
 )
