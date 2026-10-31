@@ -91,22 +91,41 @@ export default function App() {
 
   // Saves shortly after the last change; a failure stays on screen until a save succeeds.
   const first = useRef(true);
+  // The change still waiting to be saved, if any.
+  const unsaved = useRef<Store | null>(null);
+  const saveNow = useCallback(() => {
+    if (!unsaved.current) return;
+    try {
+      save(kv, unsaved.current);
+      unsaved.current = null;
+      setSaveError(null);
+    } catch (e) {
+      setSaveError((e as Error).message);
+    }
+  }, []);
   useEffect(() => {
     if (!store) return;
     if (first.current) {
       first.current = false;
       return;
     }
-    const t = setTimeout(() => {
-      try {
-        save(kv, store);
-        setSaveError(null);
-      } catch (e) {
-        setSaveError((e as Error).message);
-      }
-    }, 300);
+    unsaved.current = store;
+    const t = setTimeout(saveNow, 300);
     return () => clearTimeout(t);
-  }, [store]);
+  }, [store, saveNow]);
+  // Leaving inside that wait (closing the tab, switching apps on an iPad, which may never
+  // come back to the page) lost the last change without a sign. Save on the way out.
+  // pagehide covers closing and navigating; visibilitychange covers being put away, the
+  // only warning iPad Safari reliably gives before discarding a page.
+  useEffect(() => {
+    const hidden = () => document.visibilityState === 'hidden' && saveNow();
+    addEventListener('pagehide', saveNow);
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      removeEventListener('pagehide', saveNow);
+      document.removeEventListener('visibilitychange', hidden);
+    };
+  }, [saveNow]);
 
   const update = useCallback((id: string, change: (s: Study) => Study) => {
     setStore((st) => st && { ...st, pads: st.pads.map((s) => (s.id === id ? { ...change(s), updated: new Date().toISOString() } : s)) });

@@ -33,6 +33,18 @@ test.describe('beginning', () => {
     await page.goto('/');
     await expect(page).toHaveURL(url);
   });
+
+  test('what was written just before leaving is kept', async ({ page }) => {
+    // Saving waits 300ms after the last change. Leaving inside that wait used to lose the
+    // change without a sign: CI found it when a study begun just before leaving was gone
+    // (the reopen test above landed on #/new). The same happens to a closed iPad tab.
+    await beginStudy(page, 'Mark', 4);
+    await show(page, 'Notes');
+    await page.getByLabel('Notes', { exact: true }).fill('The sower sows the word.');
+    await page.goto('/');
+    await show(page, 'Notes');
+    await expect(page.getByLabel('Notes', { exact: true })).toHaveValue('The sower sows the word.');
+  });
 });
 
 test.describe('working on a passage', () => {
