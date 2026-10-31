@@ -18,6 +18,15 @@ async function dragFrom(page: Page, from: { x: number; y: number }, by: { x: num
 const centre = (b: { x: number; y: number; width: number; height: number }) => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
 
 test.describe('the toolbar', () => {
+  test('fits the screen where it starts, on every device', async ({ page }) => {
+    // With the grip added it was 841px wide on an upright iPad's 834px (caught in CI).
+    await beginStudy(page, 'John', 15);
+    const b = await box(page, '.toolbar');
+    const v = page.viewportSize()!;
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(v.width);
+  });
+
   test('drags by its grip to anywhere, stays there, and a double-click brings it home', async ({ page }) => {
     await beginStudy(page, 'John', 15);
     const home = await box(page, '.toolbar');
@@ -74,6 +83,35 @@ test.describe('the pen', () => {
     await page.getByRole('button', { name: 'Put the pen back' }).click();
     await expect(page.locator('.pen-loose')).toHaveCount(0);
     await expect(page.locator('.toolbar .pen-photo')).toBeVisible();
+  });
+
+  test('turns any which way: an end dragged round, or the arrow keys', async ({ page }, info) => {
+    noPens(info.project.name);
+    // Five things in a row (pick up, turn, move, key, reload): on WebKit under a loaded
+    // machine it ran past 30s at the last step; replayed alone, every step was right.
+    test.slow();
+    await beginStudy(page, 'John', 15);
+    const from = centre(await box(page, '.toolbar .pen-photo'));
+    await dragFrom(page, from, { x: 0, y: -320 });
+    const pen = page.locator('.pen-loose');
+    await expect(pen).toBeVisible();
+    const angle = () => pen.evaluate((el) => Number(/rotate\((-?[\d.]+)deg\)/.exec((el as HTMLElement).style.transform)?.[1]));
+    const before = await angle();
+    // Grab near the right end and swing it down: the pen turns about its middle.
+    const b = await pen.boundingBox();
+    const mid = centre(b!);
+    const end = { x: mid.x + b!.width * 0.4, y: mid.y };
+    await dragFrom(page, end, { x: -40, y: 90 });
+    expect(Math.abs((await angle()) - before)).toBeGreaterThan(30);
+    // And the middle still moves it, at the angle it now lies at.
+    const turned = await angle();
+    await dragFrom(page, centre((await pen.boundingBox())!), { x: -60, y: 40 });
+    expect(await angle()).toBe(turned);
+    await pen.focus();
+    await page.keyboard.press('ArrowRight');
+    expect(await angle()).toBe(turned + 15);
+    await page.reload();
+    await expect.poll(angle).toBe(turned + 15);
   });
 
   test('dropped back on the toolbar, it goes back in', async ({ page }, info) => {

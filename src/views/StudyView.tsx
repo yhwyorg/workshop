@@ -72,7 +72,10 @@ const sizePref = (k: string) => {
 /** Where the reader moved the toolbar, and laid the pen: {x, y} in pixels, or none. */
 const BAR_SPOT_KEY = 'workshop:toolbar-spot';
 const PEN_SPOT_KEY = 'workshop:pen-spot';
-type Spot = { x: number; y: number };
+/** Where something lies: its top-left, and for the pen the angle it lies at (degrees). */
+type Spot = { x: number; y: number; a?: number };
+/** The angle a pen lies at when first laid down: a little askew, as a pen put down is. */
+const LAID_ANGLE = -7;
 const spotPref = (k: string): Spot | null => {
   try {
     const v = JSON.parse(pref.get(k) ?? 'null') as Spot | null;
@@ -295,6 +298,45 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
     const [fx, fy] = [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
     const h = (LOOSE_W * r.height) / r.width;
     const at = (ev: PointerEvent) => onScreen(ev.clientX - fx * LOOSE_W, ev.clientY - fy * h, LOOSE_W, h);
+    // Keeps the angle it lies at while it is moved.
+    const angle = penSpot?.a;
+    drag(e, {
+      move: (_dx, _dy, ev) => setPenSpot({ ...at(ev), a: angle }),
+      end: (moved, ev) => {
+        if (!moved) return onTap?.();
+        const bar = toolbar.current?.getBoundingClientRect();
+        const onBar = bar && ev.clientX >= bar.left && ev.clientX <= bar.right && ev.clientY >= bar.top && ev.clientY <= bar.bottom;
+        if (onBar) putPenBack();
+        else keepSpot(PEN_SPOT_KEY, { ...at(ev), a: angle });
+      },
+    });
+  };
+  // The pen where it lies: grabbed near the middle it moves; grabbed near an end it
+  // turns about its middle, to any angle, as a real pen does when one end is pushed.
+  const handleLoosePen = (e: React.PointerEvent<HTMLElement>) => {
+    if (!penSpot) return;
+    const el = e.currentTarget;
+    const [w, h] = [el.offsetWidth, el.offsetHeight];
+    const c = { x: penSpot.x + w / 2, y: penSpot.y + h / 2 };
+    const a0 = penSpot.a ?? LAID_ANGLE;
+    const rad = (a0 * Math.PI) / 180;
+    // How far along the pen the press is, from its middle (0) to either end (1).
+    const along = ((e.clientX - c.x) * Math.cos(rad) + (e.clientY - c.y) * Math.sin(rad)) / (w / 2);
+    const tap = penArt === 'fountain' ? () => setChoice('pen') : undefined;
+    if (Math.abs(along) < 0.55) return carryPenFrom(e, w, h, tap);
+    const grip = (Math.atan2(e.clientY - c.y, e.clientX - c.x) * 180) / Math.PI - a0;
+    const turned = (ev: PointerEvent) => ({ ...penSpot, a: Math.round((Math.atan2(ev.clientY - c.y, ev.clientX - c.x) * 180) / Math.PI - grip) });
+    drag(e, {
+      move: (_dx, _dy, ev) => setPenSpot(turned(ev)),
+      end: (moved, ev) => (moved ? keepSpot(PEN_SPOT_KEY, turned(ev)) : tap?.()),
+    });
+  };
+  // Moving the pen where it lies: as carrying it, but measured from its unturned box.
+  const carryPenFrom = (e: React.PointerEvent<HTMLElement>, w: number, h: number, onTap?: () => void) => {
+    if (!penSpot) return;
+    const [ox, oy] = [e.clientX - penSpot.x, e.clientY - penSpot.y];
+    const angle = penSpot.a;
+    const at = (ev: PointerEvent) => ({ ...onScreen(ev.clientX - ox, ev.clientY - oy, w, h), a: angle });
     drag(e, {
       move: (_dx, _dy, ev) => setPenSpot(at(ev)),
       end: (moved, ev) => {
@@ -432,11 +474,21 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
       {penOut && penSpot && (
         <img
           className="pen-loose" src={PEN_PHOTO[penArt as keyof typeof PEN_PHOTO]} alt="" draggable={false}
-          style={{ left: penSpot.x, top: penSpot.y, width: LOOSE_W }}
-          role="button" tabIndex={0} aria-label="The pen, lying on the page: drag to move it; double-click or Enter to put it back"
-          onPointerDown={(e) => carryPen(e, penArt === 'fountain' ? () => setChoice('pen') : undefined)}
+          style={{ left: penSpot.x, top: penSpot.y, width: LOOSE_W, transform: `rotate(${penSpot.a ?? LAID_ANGLE}deg)` }}
+          role="button" tabIndex={0}
+          aria-label="The pen, lying on the page: drag its middle to move it, an end to turn it; arrow keys turn it; double-click or Enter puts it back"
+          title="Drag the middle to move it, an end to turn it"
+          onPointerDown={(e) => handleLoosePen(e)}
           onDoubleClick={putPenBack}
-          onKeyDown={(e) => e.key === 'Enter' && putPenBack()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') return putPenBack();
+            const turn = { ArrowLeft: -15, ArrowRight: 15 }[e.key];
+            if (turn === undefined || !penSpot) return;
+            e.preventDefault();
+            const next = { ...penSpot, a: (penSpot.a ?? LAID_ANGLE) + turn };
+            setPenSpot(next);
+            keepSpot(PEN_SPOT_KEY, next);
+          }}
         />
       )}
 

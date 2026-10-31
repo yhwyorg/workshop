@@ -500,7 +500,8 @@ button:disabled { opacity: 0.35; cursor: default; }
 /* The pen, laid on the page: a little larger, at a slight angle, with the shadow of
    something resting on paper. */
 .pen-loose {
-  position: fixed; z-index: 14; height: auto; transform: rotate(-7deg); transform-origin: 50% 50%;
+  /* Its angle is set where it lies (StudyView); turned about its middle. */
+  position: fixed; z-index: 14; height: auto; transform-origin: 50% 50%;
   filter: drop-shadow(1px 5px 4px rgba(0, 0, 0, 0.28)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
   cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
 }
@@ -523,8 +524,9 @@ button:disabled { opacity: 0.35; cursor: default; }
 .fountain { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 10px; }
 .fountain:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 .fountain[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 9%, transparent); }
-/* Narrower screens: a slightly smaller pen, so the toolbar still fits an upright iPad. */
-@media (max-width: 999px) { .pen-photo { width: 200px; } .pen-art.fountain { width: 200px; } }
+/* Narrower screens: a smaller pen, so the toolbar fits an upright iPad. With the grip
+   added it ran 841px wide on an 834px screen (caught in CI), even in its home position. */
+@media (max-width: 999px) { .toolbar .pen-photo { width: 160px; } .pen-art.fountain { width: 160px; } }
 
 /* An Apple Pencil always writes and a finger never does, so a touch device has no
    use for "Read"; it exists for the mouse. */
