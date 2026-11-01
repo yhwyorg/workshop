@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { intoBible, withBible } from './bible';
+import { exportBackup, intoBible, mergeBackup, readBackup, withBible } from './bible';
 import { STORE_KEY, exportStudy, importStudy, load, newStudy, type Ink, type KV, type Store, type Study } from './studies';
 
 const memory = (init: Record<string, string> = {}): KV => {
@@ -8,6 +8,8 @@ const memory = (init: Record<string, string> = {}): KV => {
 };
 const study = (passage: string, updated: string, extra: Partial<Study> = {}): Study => ({
   ...newStudy(passage, ''),
+  // Fixed: two studies made a moment apart would otherwise differ by a millisecond.
+  created: updated,
   updated,
   ...extra,
 });
@@ -112,6 +114,84 @@ describe('a saved copy of a study', () => {
     const opened = intoBible({ version: 1, pads: [importStudy(exportStudy(copy))] });
     expect(opened.bible?.JOH.marks).toEqual({ '15001:4': 'underline' });
     expect(opened.bible?.JOH.ink['15'].strokes).toHaveLength(1);
+  });
+});
+
+describe('a backup of everything', () => {
+  // A Bible kept in one browser on one iPad is gone if that browser's data is cleared.
+  const store = (): Store => ({
+    version: 1,
+    pads: [study('John 15', '2026-10-31T10:00:00Z', { id: 's1', notes: { page: 'Abide.' }, ink: { pad: inked([3, 3, 0.5]) } })],
+    bible: { JOH: { marks: { '15001:4': 'circle' }, ink: { '15': inked([1, 2, 0.5]), 'margin:15': inked([9, 9, 0.5]) } } },
+  });
+  const nothing = (): Store => ({ version: 1, pads: [] });
+
+  it('holds the whole store and reads back the same', () => {
+    expect(readBackup(exportBackup(store()))).toEqual(store());
+  });
+
+  it('brings everything back to a browser that has lost it, and counts what it brought', () => {
+    const r = mergeBackup(nothing(), store());
+    expect(r.store.pads).toEqual(store().pads);
+    expect(r.store.bible).toEqual(store().bible);
+    expect(r.brought).toEqual({ marks: 1, pages: 2, studies: 1 });
+    expect(r.leftOut).toBe(0);
+  });
+
+  it('opened twice adds nothing: not a study, not a stroke', () => {
+    const once = mergeBackup(nothing(), store());
+    const twice = mergeBackup(once.store, store());
+    expect(twice.store).toEqual(once.store);
+    expect(twice.brought).toEqual({ marks: 0, pages: 0, studies: 0 });
+  });
+
+  it('never deletes what was written since the backup', () => {
+    const now = store();
+    now.pads.push(study('Mark 4', '2026-11-01T10:00:00Z', { id: 's2' }));
+    now.bible!.JOH.marks['15002:0'] = 'box';
+    now.bible!.JOH.ink['15'] = inked([1, 2, 0.5], [5, 5, 0.5]);
+    const r = mergeBackup(now, store());
+    expect(r.store.pads.map((s) => s.id).sort()).toEqual(['s1', 's2']);
+    expect(r.store.bible?.JOH.marks['15002:0']).toBe('box');
+    expect(r.store.bible?.JOH.ink['15'].strokes).toHaveLength(2);
+  });
+
+  it('keeps the newer of a study, and today’s mark on a word marked in both', () => {
+    const now = store();
+    now.pads[0] = { ...now.pads[0], updated: '2026-11-01T10:00:00Z', notes: { page: 'Newer.' } };
+    now.bible!.JOH.marks['15001:4'] = 'box';
+    const r = mergeBackup(now, store());
+    expect(r.store.pads[0].notes.page).toBe('Newer.');
+    expect(r.store.bible?.JOH.marks['15001:4']).toBe('box');
+    // And the other way: a newer study in the backup replaces an older one here.
+    const older = store();
+    older.pads[0] = { ...older.pads[0], updated: '2026-10-01T10:00:00Z', notes: { page: 'Older.' } };
+    expect(mergeBackup(older, store()).store.pads[0].notes.page).toBe('Abide.');
+  });
+
+  it('says so when ink can’t be joined, rather than dropping it unannounced or moving what is here', () => {
+    // Ink from before paragraphs can't share a page with ink written on them.
+    const now = store();
+    const old = store();
+    old.bible!.JOH.ink['15'] = { width: 560, strokes: [{ tool: 'red', pts: [7, 7, 0.5] }] };
+    const r = mergeBackup(now, old);
+    expect(r.leftOut).toBe(1);
+    expect(r.store.bible?.JOH.ink['15']).toEqual(now.bible!.JOH.ink['15']);
+  });
+
+  it('is told apart from a saved copy of one study, so one button opens either', () => {
+    expect(readBackup(exportStudy(newStudy('John 15', '')))).toBeNull();
+    expect(readBackup('{"format":"workshop-skin/1"}')).toBeNull();
+    expect(readBackup('not json')).toBeNull();
+  });
+
+  it.each([
+    ['an unknown mark', { version: 1, pads: [], bible: { JOH: { marks: { '15001:4': 'scribble' }, ink: {} } } }],
+    ['damaged ink', { version: 1, pads: [], bible: { JOH: { marks: {}, ink: { '15': { width: 560, strokes: [{ tool: 'pen', pts: [1, 2] }] } } } } }],
+    ['a damaged study', { version: 1, pads: [{ id: 'x' }] }],
+    ['no store', undefined],
+  ])('refuses a damaged backup with %s, before anything is changed', (_, damaged) => {
+    expect(() => readBackup(JSON.stringify({ format: 'workshop-backup/1', store: damaged }))).toThrow(/backup/i);
   });
 });
 

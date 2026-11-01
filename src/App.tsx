@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { intoBible, withBible } from './lib/bible';
+import { exportBackup, intoBible, mergeBackup, readBackup, withBible, type Merged } from './lib/bible';
 import { chapterOf, parsePassage, type Lengths } from './lib/refs';
 import { href, useRoute } from './lib/route';
 import { applySkin, pensOf, validateSkin, type Skin } from './lib/skin';
-import { exportStudy, importStudy, load, newStudy, save, STORE_KEY, type Bible, type BookMarks, type KV, type Loaded, type Store, type Study } from './lib/studies';
+import { exportStudy, importStudy, load, newStudy, save, STORE_KEY, type BookMarks, type KV, type Loaded, type Store, type Study } from './lib/studies';
 import { useMediaQuery } from './lib/media';
 import { loadLengths } from './lib/text';
 import { AUTO, BUILT_IN, DARK, DEFAULT, LIGHT } from './skins';
@@ -22,6 +22,8 @@ const kv: KV = {
 const SKIN_KEY = 'workshop:skin';
 const CUSTOM_KEY = 'workshop:skins';
 const LAST_KEY = 'workshop:last';
+/** When everything was last saved to a file on this device. */
+const BACKUP_KEY = 'workshop:backup-saved';
 /** "on" when the words of Jesus are shown in red. */
 const RED_KEY = 'workshop:red-letter';
 
@@ -188,7 +190,12 @@ export default function App() {
       {menu && (
         <Menu
           current={current}
-          bible={store?.bible}
+          store={store}
+          restore={(backup) => {
+            const merged = mergeBackup(store!, backup);
+            setStore(merged.store);
+            return merged;
+          }}
           lengths={lengths}
           redLetter={redLetter}
           setRedLetter={(on) => {
@@ -235,9 +242,30 @@ export default function App() {
   );
 }
 
-function Menu({ current, bible, lengths, redLetter, setRedLetter, close, add, remove }: {
+/** "Last saved today", or that it never was: no backup must not read like an old one. */
+function lastSaved(iso: string | null, now = new Date()) {
+  if (!iso) return 'Not saved yet on this device.';
+  const day = (d: Date) => Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 86_400_000);
+  const days = day(now) - day(new Date(iso));
+  return `Last saved ${days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`}.`;
+}
+
+/** What a backup brought back, in words; an empty result says so, so it can't read as a failure. */
+function broughtBack({ brought: { marks, pages, studies }, leftOut }: Merged) {
+  const count = (n: number, one: string, many: string) => (n ? [`${n} ${n === 1 ? one : many}`] : []);
+  const parts = [...count(marks, 'mark', 'marks'), ...count(pages, 'page of writing', 'pages of writing'), ...count(studies, 'study', 'studies')];
+  const said = parts.length
+    ? `Brought back ${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0]}.`
+    : 'Nothing new: everything in this file is already here.';
+  return leftOut
+    ? `${said} ${leftOut} ${leftOut === 1 ? 'page' : 'pages'} of older writing couldn’t be joined to what is here, and ${leftOut === 1 ? 'stays' : 'stay'} safe in the file.`
+    : said;
+}
+
+function Menu({ current, store, restore, lengths, redLetter, setRedLetter, close, add, remove }: {
   current: Study | undefined;
-  bible: Bible | undefined;
+  store: Store | null;
+  restore: (backup: Store) => Merged;
   lengths: Lengths | null;
   redLetter: boolean;
   setRedLetter: (on: boolean) => void;
@@ -247,6 +275,8 @@ function Menu({ current, bible, lengths, redLetter, setRedLetter, close, add, re
 }) {
   const file = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [backedUp, setBackedUp] = useState(() => remembered(BACKUP_KEY));
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && close();
@@ -274,14 +304,30 @@ function Menu({ current, bible, lengths, redLetter, setRedLetter, close, add, re
       return;
     }
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([exportStudy(withBible(s, bible, chapters))], { type: 'application/json' }));
+    a.href = URL.createObjectURL(new Blob([exportStudy(withBible(s, store?.bible, chapters))], { type: 'application/json' }));
     a.download = `${(s.title || s.passage).replace(/[^\w\s:-]/g, '').replace(/:/g, '.').trim() || 'study'}.study.json`;
     a.click();
   };
+  const saveEverything = () => {
+    if (!store) return;
+    const now = new Date();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([exportBackup(store, now)], { type: 'application/json' }));
+    a.download = `my-bible-${now.toLocaleDateString('en-CA')}.json`;
+    a.click();
+    remember(BACKUP_KEY, now.toISOString());
+    setBackedUp(now.toISOString());
+  };
+  // One button opens either kind of file: there is nothing to choose between.
   const openCopy = async (f: File | undefined) => {
     if (!f) return;
+    setError(null);
+    setStatus(null);
     try {
-      add(importStudy(await f.text()));
+      const text = await f.text();
+      const backup = readBackup(text);
+      if (backup) setStatus(broughtBack(restore(backup)));
+      else add(importStudy(text));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -318,8 +364,19 @@ function Menu({ current, bible, lengths, redLetter, setRedLetter, close, add, re
           Words of Jesus in red
         </button>
         <hr />
+        <button type="button" onClick={saveEverything}>Save my Bible and all my studies</button>
+        <p className="menu-note">{lastSaved(backedUp)} It keeps your marks, margin notes and studies in one file. Keep it somewhere safe.</p>
         <button type="button" onClick={() => file.current?.click()}>Open a saved copy…</button>
-        <input ref={file} type="file" accept=".json,application/json" hidden onChange={(e) => openCopy(e.target.files?.[0])} />
+        <input
+          ref={file} type="file" accept=".json,application/json" hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            // Or choosing the same file again would do nothing at all.
+            e.target.value = '';
+            void openCopy(f);
+          }}
+        />
+        {status && <p className="menu-note" role="status">{status}</p>}
         {error && <p className="error" role="alert">{error}</p>}
         <a href={href.paper()}>Paper</a>
         <a href={href.about()}>About</a>

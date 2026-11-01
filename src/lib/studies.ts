@@ -117,10 +117,8 @@ export function load(kv: KV): Loaded {
   }
   if (raw === null) return { state: 'empty', store: { version: 1, pads: [] } };
   try {
-    const parsed = JSON.parse(raw) as Store;
-    if (parsed?.version !== 1 || !Array.isArray(parsed.pads)) throw new Error('not a version 1 store');
-    parsed.pads.forEach((p, i) => checkStudy(p, `study ${i + 1}`));
-    for (const [book, b] of Object.entries(parsed.bible ?? {})) checkMarked(b, `the Bible's ${book}`);
+    const parsed: unknown = JSON.parse(raw);
+    checkStore(parsed);
     return { state: 'ok', store: parsed };
   } catch (e) {
     // Never start empty over unreadable data: the next save would overwrite it.
@@ -130,6 +128,14 @@ export function load(kv: KV): Loaded {
 
 export function save(kv: KV, store: Store): void {
   kv.setItem(STORE_KEY, JSON.stringify(store));
+}
+
+/** Throws, naming what is wrong, unless this is a store every part of which can be read. */
+export function checkStore(x: unknown): asserts x is Store {
+  const store = x as Store;
+  if (store?.version !== 1 || !Array.isArray(store.pads)) throw new Error('not a version 1 store');
+  store.pads.forEach((p, i) => checkStudy(p, `study ${i + 1}`));
+  for (const [book, b] of Object.entries(store.bible ?? {})) checkMarked(b, `the Bible's ${book}`);
 }
 
 function checkStudy(p: unknown, where: string): asserts p is Study {
