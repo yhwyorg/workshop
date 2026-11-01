@@ -487,12 +487,46 @@ button:disabled { opacity: 0.35; cursor: default; }
 /* The three-colour pen: the photograph, then its colours as ink dots. */
 .pen-art.bic { width: auto; display: inline-flex; align-items: center; gap: 2px; }
 .pen-art.bic .pen-photo { position: static; transform: none; margin-right: 6px; }
+/* The pen can be picked up: a hand to say so. */
+.pen-grab { cursor: grab; touch-action: none; }
+.pen-photo.pen-grab { pointer-events: auto; }
+.pen-grab:active { cursor: grabbing; }
+/* Where the pen was, while it lies on the page: an empty slot that puts it back. */
+.pen-slot {
+  min-height: 34px; padding: 0 12px; margin-right: 4px; border: 1.5px dashed var(--hairline); border-radius: 17px;
+  background: none; color: var(--muted); font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.pen-slot:hover { color: var(--slip-ink); border-color: var(--muted); }
+/* The pen, laid on the page: a little larger, at a slight angle, with the shadow of
+   something resting on paper. */
+.pen-loose {
+  /* Its angle is set where it lies (StudyView); turned about its middle. */
+  position: fixed; z-index: 14; height: auto; transform-origin: 50% 50%;
+  filter: drop-shadow(1px 5px 4px rgba(0, 0, 0, 0.28)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.pen-loose:active { cursor: grabbing; filter: drop-shadow(2px 10px 8px rgba(0, 0, 0, 0.3)); }
+.pen-loose:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+/* The toolbar's grip: two columns of dots at its left end. */
+.tb-grip {
+  display: grid; place-items: center; width: 22px; height: 44px; margin-right: 2px; padding: 0; border: 0; border-radius: 10px;
+  background: none; cursor: grab; touch-action: none;
+}
+.tb-grip span {
+  width: 8px; height: 16px;
+  background: radial-gradient(circle, var(--muted) 1.3px, transparent 1.6px) 0 0 / 4px 4px;
+  opacity: 0.7;
+}
+.tb-grip:hover span { opacity: 1; }
+.tb-grip:active { cursor: grabbing; }
+.tb-grip:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* The fountain pen is one button: the pen. */
 .fountain { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 10px; }
 .fountain:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 .fountain[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 9%, transparent); }
-/* Narrower screens: a slightly smaller pen, so the toolbar still fits an upright iPad. */
-@media (max-width: 999px) { .pen-photo { width: 200px; } .pen-art.fountain { width: 200px; } }
+/* Narrower screens: a smaller pen, so the toolbar fits an upright iPad. With the grip
+   added it ran 841px wide on an 834px screen (caught in CI), even in its home position. */
+@media (max-width: 999px) { .toolbar .pen-photo { width: 160px; } .pen-art.fountain { width: 160px; } }
 
 /* An Apple Pencil always writes and a finger never does, so a touch device has no
    use for "Read"; it exists for the mouse. */
@@ -609,7 +643,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 @media print {
   html, body { background: #fff !important; }
   /* The reference is for the desk, not the printout: it is someone else's text. */
-  .menu-button, .toolbar, .chapter-picker, .verse-panel, .pane-switch, .refs, .alert, .ink-note, .notes-mode,
+  .menu-button, .toolbar, .chapter-picker, .verse-panel, .pane-switch, .refs, .alert, .ink-note, .notes-mode, .pen-loose,
   .notes-edge, .notes-fold, .notes-unfold { display: none !important; }
   /* Folded on screen is not folded on paper: "Print my notes" prints them. */
   .workspace.notes-folded .notes-pane { overflow: visible; }

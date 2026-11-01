@@ -11,7 +11,8 @@ import { nextMark, SHEETS, type Ink, type Mark, type Sheet, type Study, type Too
 import { loadBook } from '../lib/text';
 import Fit from './Fit';
 import NotesEdge from './NotesEdge';
-import { FountainPen, MultiColourPen } from './PenArt';
+import { drag, onScreen } from './drag';
+import { FountainPen, MultiColourPen, PEN_PHOTO } from './PenArt';
 import InkSurface from './Ink';
 import { ReferencePicker, ReferenceText } from './Reference';
 import { useScrollLock } from './scrollLock';
@@ -68,6 +69,24 @@ const sizePref = (k: string) => {
   const n = Number(pref.get(k));
   return Number.isFinite(n) && n > 0 ? n : null;
 };
+/** Where the reader moved the toolbar, and laid the pen: {x, y} in pixels, or none. */
+const BAR_SPOT_KEY = 'workshop:toolbar-spot';
+const PEN_SPOT_KEY = 'workshop:pen-spot';
+/** Where something lies: its top-left, and for the pen the angle it lies at (degrees). */
+type Spot = { x: number; y: number; a?: number };
+/** The angle a pen lies at when first laid down: a little askew, as a pen put down is. */
+const LAID_ANGLE = -7;
+const spotPref = (k: string): Spot | null => {
+  try {
+    const v = JSON.parse(pref.get(k) ?? 'null') as Spot | null;
+    return v && Number.isFinite(v.x) && Number.isFinite(v.y) ? v : null;
+  } catch {
+    return null;
+  }
+};
+const keepSpot = (k: string, s: Spot | null) => pref.set(k, s ? JSON.stringify(s) : '');
+/** The pen laid on the page is larger than in the toolbar, nearer its real size. */
+const LOOSE_W = 330;
 /** "0" when the reader has unlocked the Bible and references from each other. */
 const LOCK_KEY = 'workshop:scroll-lock';
 
@@ -129,6 +148,16 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
   const [notesWidth, setNotesWidth] = useState(() => sizePref(NOTES_WIDTH_KEY));
   const [notesHeight, setNotesHeight] = useState(() => sizePref(NOTES_HEIGHT_KEY));
   const [folded, setFolded] = useState(() => pref.get(FOLDED_KEY) === '1');
+  const [barSpot, setBarSpot] = useState(() => spotPref(BAR_SPOT_KEY));
+  const [penSpot, setPenSpot] = useState(() => spotPref(PEN_SPOT_KEY));
+  const toolbar = useRef<HTMLDivElement>(null);
+  // Re-rendered when the window changes size, so a moved toolbar or pen stays on screen.
+  const [, setViewport] = useState(0);
+  useEffect(() => {
+    const on = () => setViewport((n) => n + 1);
+    addEventListener('resize', on);
+    return () => removeEventListener('resize', on);
+  }, []);
   // What each change of ink replaced, newest last, so Undo can put it back.
   const [history, setHistory] = useState<{ surface: string; before: Ink | undefined }[]>([]);
   const biblePane = useRef<HTMLElement>(null);
@@ -232,6 +261,92 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
   const lock = () => {
     setLocked(!locked);
     pref.set(LOCK_KEY, locked ? '0' : '1');
+  };
+  // The toolbar, dragged by its grip; double-click puts it back at the bottom.
+  const moveBar = (e: React.PointerEvent<HTMLElement>) => {
+    const r = toolbar.current!.getBoundingClientRect();
+    const at = (dx: number, dy: number) => onScreen(r.left + dx, r.top + dy, r.width, r.height);
+    drag(e, {
+      move: (dx, dy) => setBarSpot(at(dx, dy)),
+      end: (moved, ev) => moved && keepSpot(BAR_SPOT_KEY, at(ev.clientX - e.clientX, ev.clientY - e.clientY)),
+    });
+  };
+  const nudgeBar = (e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? 96 : 24;
+    const by = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (!by) return;
+    e.preventDefault();
+    const r = toolbar.current!.getBoundingClientRect();
+    const next = onScreen(r.left + by[0], r.top + by[1], r.width, r.height);
+    setBarSpot(next);
+    keepSpot(BAR_SPOT_KEY, next);
+  };
+  const homeBar = () => {
+    setBarSpot(null);
+    keepSpot(BAR_SPOT_KEY, null);
+  };
+  // The pen, picked up out of the toolbar (or moved where it lies) and laid anywhere.
+  // Dropped on the toolbar, it goes back in.
+  const penOut = penSpot !== null && penArt !== 'none' && !phone;
+  const putPenBack = () => {
+    setPenSpot(null);
+    keepSpot(PEN_SPOT_KEY, null);
+  };
+  const carryPen = (e: React.PointerEvent<HTMLElement>, onTap?: () => void) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    // Held where it was grabbed, as a real pen is: the same point stays under the finger.
+    const [fx, fy] = [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
+    const h = (LOOSE_W * r.height) / r.width;
+    const at = (ev: PointerEvent) => onScreen(ev.clientX - fx * LOOSE_W, ev.clientY - fy * h, LOOSE_W, h);
+    // Keeps the angle it lies at while it is moved.
+    const angle = penSpot?.a;
+    drag(e, {
+      move: (_dx, _dy, ev) => setPenSpot({ ...at(ev), a: angle }),
+      end: (moved, ev) => {
+        if (!moved) return onTap?.();
+        const bar = toolbar.current?.getBoundingClientRect();
+        const onBar = bar && ev.clientX >= bar.left && ev.clientX <= bar.right && ev.clientY >= bar.top && ev.clientY <= bar.bottom;
+        if (onBar) putPenBack();
+        else keepSpot(PEN_SPOT_KEY, { ...at(ev), a: angle });
+      },
+    });
+  };
+  // The pen where it lies: grabbed near the middle it moves; grabbed near an end it
+  // turns about its middle, to any angle, as a real pen does when one end is pushed.
+  const handleLoosePen = (e: React.PointerEvent<HTMLElement>) => {
+    if (!penSpot) return;
+    const el = e.currentTarget;
+    const [w, h] = [el.offsetWidth, el.offsetHeight];
+    const c = { x: penSpot.x + w / 2, y: penSpot.y + h / 2 };
+    const a0 = penSpot.a ?? LAID_ANGLE;
+    const rad = (a0 * Math.PI) / 180;
+    // How far along the pen the press is, from its middle (0) to either end (1).
+    const along = ((e.clientX - c.x) * Math.cos(rad) + (e.clientY - c.y) * Math.sin(rad)) / (w / 2);
+    const tap = penArt === 'fountain' ? () => setChoice('pen') : undefined;
+    if (Math.abs(along) < 0.55) return carryPenFrom(e, w, h, tap);
+    const grip = (Math.atan2(e.clientY - c.y, e.clientX - c.x) * 180) / Math.PI - a0;
+    const turned = (ev: PointerEvent) => ({ ...penSpot, a: Math.round((Math.atan2(ev.clientY - c.y, ev.clientX - c.x) * 180) / Math.PI - grip) });
+    drag(e, {
+      move: (_dx, _dy, ev) => setPenSpot(turned(ev)),
+      end: (moved, ev) => (moved ? keepSpot(PEN_SPOT_KEY, turned(ev)) : tap?.()),
+    });
+  };
+  // Moving the pen where it lies: as carrying it, but measured from its unturned box.
+  const carryPenFrom = (e: React.PointerEvent<HTMLElement>, w: number, h: number, onTap?: () => void) => {
+    if (!penSpot) return;
+    const [ox, oy] = [e.clientX - penSpot.x, e.clientY - penSpot.y];
+    const angle = penSpot.a;
+    const at = (ev: PointerEvent) => ({ ...onScreen(ev.clientX - ox, ev.clientY - oy, w, h), a: angle });
+    drag(e, {
+      move: (_dx, _dy, ev) => setPenSpot(at(ev)),
+      end: (moved, ev) => {
+        if (!moved) return onTap?.();
+        const bar = toolbar.current?.getBoundingClientRect();
+        const onBar = bar && ev.clientX >= bar.left && ev.clientX <= bar.right && ev.clientY >= bar.top && ev.clientY <= bar.bottom;
+        if (onBar) putPenBack();
+        else keepSpot(PEN_SPOT_KEY, at(ev));
+      },
+    });
   };
   const fold = (on: boolean) => {
     setFolded(on);
@@ -356,7 +471,42 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
         </div>
       )}
 
-      <div className="toolbar" role="toolbar" aria-label="Study">
+      {penOut && penSpot && (
+        <img
+          className="pen-loose" src={PEN_PHOTO[penArt as keyof typeof PEN_PHOTO]} alt="" draggable={false}
+          style={{ left: penSpot.x, top: penSpot.y, width: LOOSE_W, transform: `rotate(${penSpot.a ?? LAID_ANGLE}deg)` }}
+          role="button" tabIndex={0}
+          aria-label="The pen, lying on the page: drag its middle to move it, an end to turn it; arrow keys turn it; double-click or Enter puts it back"
+          title="Drag the middle to move it, an end to turn it"
+          onPointerDown={(e) => handleLoosePen(e)}
+          onDoubleClick={putPenBack}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') return putPenBack();
+            const turn = { ArrowLeft: -15, ArrowRight: 15 }[e.key];
+            if (turn === undefined || !penSpot) return;
+            e.preventDefault();
+            const next = { ...penSpot, a: (penSpot.a ?? LAID_ANGLE) + turn };
+            setPenSpot(next);
+            keepSpot(PEN_SPOT_KEY, next);
+          }}
+        />
+      )}
+
+      <div
+        ref={toolbar} className={`toolbar${barSpot ? ' moved' : ''}`} role="toolbar" aria-label="Study"
+        style={barSpot ? (() => {
+          const w = toolbar.current?.offsetWidth ?? 0;
+          const h = toolbar.current?.offsetHeight ?? 0;
+          const s = onScreen(barSpot.x, barSpot.y, w, h);
+          return { left: s.x, top: s.y, bottom: 'auto', transform: 'none' };
+        })() : undefined}
+      >
+        <button
+          type="button" className="tb-grip" aria-label="Move the toolbar" title="Drag to move the toolbar; double-click to put it back"
+          onPointerDown={moveBar} onKeyDown={nudgeBar} onDoubleClick={homeBar}
+        >
+          <span aria-hidden="true" />
+        </button>
         <button type="button" className="tb-icon" onClick={openMenu} aria-label="Menu">
           <span className="tb-menu" aria-hidden="true" />
         </button>
@@ -400,8 +550,15 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
           </button>
           {/* The paper style's own pen, drawn (PenArt); its colours are its sliders, so
               only the other tools are left as dots beside it. */}
-          {penArt === 'multi-colour' && <MultiColourPen colours={pens.filter((t) => t !== 'highlighter')} choice={choice} choose={setChoice} />}
-          {penArt === 'fountain' && <FountainPen pressed={choice === 'pen'} choose={() => setChoice('pen')} />}
+          {penArt === 'multi-colour' && (
+            <MultiColourPen
+              colours={pens.filter((t) => t !== 'highlighter')} choice={choice} choose={setChoice}
+              out={penOut} pickUp={(e) => carryPen(e)} putBack={putPenBack}
+            />
+          )}
+          {penArt === 'fountain' && (
+            <FountainPen pressed={choice === 'pen'} choose={() => setChoice('pen')} out={penOut} pickUp={(e) => carryPen(e)} putBack={putPenBack} />
+          )}
           {pens.filter((t) => !drawn.includes(t)).map((t) => (
             <button key={t} type="button" className="tb-icon" aria-pressed={choice === t} onClick={() => setChoice(t)} aria-label={TOOL_STYLE[t].label} title={TOOL_STYLE[t].label}>
               <span className={`nib nib-${t}`} aria-hidden="true" />
