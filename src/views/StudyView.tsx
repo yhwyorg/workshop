@@ -79,6 +79,9 @@ const sizePref = (k: string) => {
 };
 /** Where the reader moved the toolbar, and laid the pen: {x, y} in pixels, or none. */
 const BAR_SPOT_KEY = 'workshop:toolbar-spot';
+/** "1" when the toolbar is tucked away to a small button. */
+const BAR_TUCKED_KEY = 'workshop:toolbar-tucked';
+const TUCKED_SPOT_KEY = 'workshop:toolbar-tucked-spot';
 const PEN_SPOT_KEY = 'workshop:pen-spot';
 /** Where something lies: its top-left, and for the pen the angle it lies at (degrees). */
 type Spot = { x: number; y: number; a?: number };
@@ -189,7 +192,14 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
     setMarginOpen(on);
     pref.set(MARGIN_KEY, on ? '1' : '0');
   };
-  const [barSpot, setBarSpot] = useState(() => spotPref(BAR_SPOT_KEY));
+  const [fullSpot, setFullSpot] = useState(() => spotPref(BAR_SPOT_KEY));
+  // Tucked away, the small button has a place of its own. Sharing one, a button parked at
+  // the far edge would open the whole toolbar from there, off the screen.
+  const [tucked, setTucked] = useState(() => pref.get(BAR_TUCKED_KEY) === '1');
+  const [tuckedSpot, setTuckedSpot] = useState(() => spotPref(TUCKED_SPOT_KEY));
+  const barSpot = tucked ? tuckedSpot : fullSpot;
+  const setBarSpot = tucked ? setTuckedSpot : setFullSpot;
+  const barSpotKey = tucked ? TUCKED_SPOT_KEY : BAR_SPOT_KEY;
   const [penSpot, setPenSpot] = useState(() => spotPref(PEN_SPOT_KEY));
   const toolbar = useRef<HTMLDivElement>(null);
   // Re-rendered when the window changes size, so a moved toolbar or pen stays on screen.
@@ -364,7 +374,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
     const at = (dx: number, dy: number) => onScreen(r.left + dx, r.top + dy, r.width, r.height);
     drag(e, {
       move: (dx, dy) => setBarSpot(at(dx, dy)),
-      end: (moved, ev) => moved && keepSpot(BAR_SPOT_KEY, at(ev.clientX - e.clientX, ev.clientY - e.clientY)),
+      end: (moved, ev) => moved && keepSpot(barSpotKey, at(ev.clientX - e.clientX, ev.clientY - e.clientY)),
     });
   };
   const nudgeBar = (e: React.KeyboardEvent) => {
@@ -375,11 +385,18 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
     const r = toolbar.current!.getBoundingClientRect();
     const next = onScreen(r.left + by[0], r.top + by[1], r.width, r.height);
     setBarSpot(next);
-    keepSpot(BAR_SPOT_KEY, next);
+    keepSpot(barSpotKey, next);
   };
   const homeBar = () => {
     setBarSpot(null);
-    keepSpot(BAR_SPOT_KEY, null);
+    keepSpot(barSpotKey, null);
+  };
+  const tuckBar = (on: boolean) => {
+    setTucked(on);
+    pref.set(BAR_TUCKED_KEY, on ? '1' : '0');
+    // Opened from the toolbar, these would be left open with no way to close them.
+    setJump(false);
+    setComparing(false);
   };
   // The pen, picked up out of the toolbar (or moved where it lies) and laid anywhere.
   // Dropped on the toolbar, it goes back in.
@@ -605,7 +622,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
       )}
 
       <div
-        ref={toolbar} className={`toolbar${barSpot ? ' moved' : ''}`} role="toolbar" aria-label="Study"
+        ref={toolbar} className={`toolbar${barSpot ? ' moved' : ''}${tucked ? ' tucked' : ''}`} role="toolbar" aria-label="Study"
         style={barSpot ? (() => {
           const w = toolbar.current?.offsetWidth ?? 0;
           const h = toolbar.current?.offsetHeight ?? 0;
@@ -619,87 +636,101 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
         >
           <span aria-hidden="true" />
         </button>
-        <button type="button" className="tb-icon" onClick={openMenu} aria-label="Menu">
-          <span className="tb-menu" aria-hidden="true" />
-        </button>
-        <span className="tb-sep" aria-hidden="true" />
-        <button type="button" className="tb-icon" onClick={() => go(ch - 1)} disabled={ch <= 1} aria-label="Previous chapter">‹</button>
-        <button type="button" className="tb-place" onClick={() => { setJump((j) => !j); setComparing(false); }} aria-expanded={jump} aria-label={`${name} ${ch}`}>{narrowBar ? shortName(passage.book) : name} {ch}</button>
-        <button type="button" className="tb-icon" onClick={() => go(ch + 1)} disabled={ch >= chapters} aria-label="Next chapter">›</button>
-        <button
-          type="button" className="tb-icon tb-compare" onClick={() => { setComparing((c) => !c); setJump(false); }} aria-expanded={comparing}
-          aria-label="Compare" title="Compare with another translation or a commentary"
-        >
-          {/* Two columns side by side. */}
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="7" height="14" rx="1.5" /><rect x="13.5" y="5" width="7" height="14" rx="1.5" /></svg>
-        </button>
-        <button
-          type="button" className="tb-look" aria-pressed={looking} onClick={() => setLooking((l) => !l)}
-          aria-label={language} title={`Tap a verse to see it in the ${language}`}
-        >
-          {/* The word where there is room; on narrower screens, its first letters. */}
-          <span className="tb-look-letters" aria-hidden="true">{language === 'Greek' ? 'αβ' : 'אב'}</span>
-          <span className="tb-look-word" aria-hidden="true">{language}</span>
-        </button>
-        {/* Not on a phone: there is no room beside the text there. */}
-        {!phone && (
+        {tucked ? (
+          <button type="button" className="tb-open" onClick={() => tuckBar(false)} aria-label="Show the toolbar" title="Show the toolbar">
+            <span aria-hidden="true">Tools</span>
+            {/* A chevron pointing up: the toolbar rises from here. */}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
+          </button>
+        ) : (
+          <>
+          <button type="button" className="tb-icon" onClick={openMenu} aria-label="Menu">
+            <span className="tb-menu" aria-hidden="true" />
+          </button>
+          <span className="tb-sep" aria-hidden="true" />
+          <button type="button" className="tb-icon" onClick={() => go(ch - 1)} disabled={ch <= 1} aria-label="Previous chapter">‹</button>
+          <button type="button" className="tb-place" onClick={() => { setJump((j) => !j); setComparing(false); }} aria-expanded={jump} aria-label={`${name} ${ch}`}>{narrowBar ? shortName(passage.book) : name} {ch}</button>
+          <button type="button" className="tb-icon" onClick={() => go(ch + 1)} disabled={ch >= chapters} aria-label="Next chapter">›</button>
           <button
-            type="button" className="tb-look tb-margin" aria-pressed={marginOpen} onClick={() => chooseMargin(!marginOpen)}
-            aria-label="Margin" title="Open a margin to write in beside the verses"
+            type="button" className="tb-icon tb-compare" onClick={() => { setComparing((c) => !c); setJump(false); }} aria-expanded={comparing}
+            aria-label="Compare" title="Compare with another translation or a commentary"
           >
-            {/* A page with a ruled margin down its right side. */}
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2" /><path d="M15 3.5v17M7 8h5M7 12h5M7 16h5" /></svg>
-            <span className="tb-look-word" aria-hidden="true">Margin</span>
+            {/* Two columns side by side. */}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="7" height="14" rx="1.5" /><rect x="13.5" y="5" width="7" height="14" rx="1.5" /></svg>
           </button>
-        )}
-        {references.length > 0 && !phone && (
           <button
-            type="button" className="tb-icon tb-lock" onClick={lock} aria-pressed={locked} aria-label="Scroll together"
-            title={locked ? 'Scrolling together: the Bible and references keep to the same verse' : 'Scrolling separately'}
+            type="button" className="tb-look" aria-pressed={looking} onClick={() => setLooking((l) => !l)}
+            aria-label={language} title={`Tap a verse to see it in the ${language}`}
           >
-            {/* A chain: links joined when locked, broken when not. */}
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              {locked ? (
-                <path d="M9.5 14.5l5-5M8 11l-2 2a3.5 3.5 0 0 0 5 5l2-2M16 13l2-2a3.5 3.5 0 0 0-5-5l-2 2" />
-              ) : (
-                <path d="M8 11l-2 2a3.5 3.5 0 0 0 5 5l1-1M16 13l2-2a3.5 3.5 0 0 0-5-5l-1 1M4 4l3 3M20 20l-3-3" />
-              )}
-            </svg>
+            {/* The word where there is room; on narrower screens, its first letters. */}
+            <span className="tb-look-letters" aria-hidden="true">{language === 'Greek' ? 'αβ' : 'אב'}</span>
+            <span className="tb-look-word" aria-hidden="true">{language}</span>
           </button>
-        )}
-        {upright && folded && (
-          <button type="button" className="tb-icon tb-unfold" onClick={() => fold(false)} aria-label="Unfold the notepad" title="Unfold the notepad">
-            {/* Ruled lines: the notepad. */}
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2" /><path d="M8 8.5h8M8 12h8M8 15.5h5" /></svg>
-          </button>
-        )}
-        <span className="tb-sep tb-pens-sep" aria-hidden="true" />
-        <span className="tb-pens" role="group" aria-label="Pens">
-          <button type="button" className="tb-icon tb-read" aria-pressed={choice === 'read'} onClick={() => choose('read')} aria-label="Read" title="Read: click words to mark them">
-            {/* A pointer arrow; a bare triangle read as a "play" button. */}
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 9-6.2 1.4 3.6 6.6-2.7 1.4-3.6-6.6L5 19z" /></svg>
-          </button>
-          {/* The paper style's own pen, drawn (PenArt); its colours are its sliders, so
-              only the other tools are left as dots beside it. */}
-          {penArt === 'multi-colour' && (
-            <MultiColourPen
-              colours={pens.filter((t) => t !== 'highlighter')} choice={choice} choose={choose}
-              out={penOut} pickUp={(e) => carryPen(e)} putBack={putPenBack}
-            />
-          )}
-          {penArt === 'fountain' && (
-            <FountainPen pressed={choice === 'pen'} choose={() => choose('pen')} out={penOut} pickUp={(e) => carryPen(e)} putBack={putPenBack} />
-          )}
-          {pens.filter((t) => !drawn.includes(t)).map((t) => (
-            <button key={t} type="button" className="tb-icon" aria-pressed={choice === t} onClick={() => choose(t)} aria-label={TOOL_STYLE[t].label} title={TOOL_STYLE[t].label}>
-              <span className={`nib nib-${t}`} aria-hidden="true" />
+          {/* Not on a phone: there is no room beside the text there. */}
+          {!phone && (
+            <button
+              type="button" className="tb-look tb-margin" aria-pressed={marginOpen} onClick={() => chooseMargin(!marginOpen)}
+              aria-label="Margin" title="Open a margin to write in beside the verses"
+            >
+              {/* A page with a ruled margin down its right side. */}
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2" /><path d="M15 3.5v17M7 8h5M7 12h5M7 16h5" /></svg>
+              <span className="tb-look-word" aria-hidden="true">Margin</span>
             </button>
-          ))}
-          <button type="button" className="tb-icon" aria-pressed={choice === 'eraser'} onClick={() => choose('eraser')} aria-label="Eraser" title="Eraser">
-            <span className="nib nib-eraser" aria-hidden="true" />
+          )}
+          {references.length > 0 && !phone && (
+            <button
+              type="button" className="tb-icon tb-lock" onClick={lock} aria-pressed={locked} aria-label="Scroll together"
+              title={locked ? 'Scrolling together: the Bible and references keep to the same verse' : 'Scrolling separately'}
+            >
+              {/* A chain: links joined when locked, broken when not. */}
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                {locked ? (
+                  <path d="M9.5 14.5l5-5M8 11l-2 2a3.5 3.5 0 0 0 5 5l2-2M16 13l2-2a3.5 3.5 0 0 0-5-5l-2 2" />
+                ) : (
+                  <path d="M8 11l-2 2a3.5 3.5 0 0 0 5 5l1-1M16 13l2-2a3.5 3.5 0 0 0-5-5l-1 1M4 4l3 3M20 20l-3-3" />
+                )}
+              </svg>
+            </button>
+          )}
+          {upright && folded && (
+            <button type="button" className="tb-icon tb-unfold" onClick={() => fold(false)} aria-label="Unfold the notepad" title="Unfold the notepad">
+              {/* Ruled lines: the notepad. */}
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2" /><path d="M8 8.5h8M8 12h8M8 15.5h5" /></svg>
+            </button>
+          )}
+          <span className="tb-sep tb-pens-sep" aria-hidden="true" />
+          <span className="tb-pens" role="group" aria-label="Pens">
+            <button type="button" className="tb-icon tb-read" aria-pressed={choice === 'read'} onClick={() => choose('read')} aria-label="Read" title="Read: click words to mark them">
+              {/* A pointer arrow; a bare triangle read as a "play" button. */}
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 9-6.2 1.4 3.6 6.6-2.7 1.4-3.6-6.6L5 19z" /></svg>
+            </button>
+            {/* The paper style's own pen, drawn (PenArt); its colours are its sliders, so
+                only the other tools are left as dots beside it. */}
+            {penArt === 'multi-colour' && (
+              <MultiColourPen
+                colours={pens.filter((t) => t !== 'highlighter')} choice={choice} choose={choose}
+                out={penOut} pickUp={(e) => carryPen(e)} putBack={putPenBack}
+              />
+            )}
+            {penArt === 'fountain' && (
+              <FountainPen pressed={choice === 'pen'} choose={() => choose('pen')} out={penOut} pickUp={(e) => carryPen(e)} putBack={putPenBack} />
+            )}
+            {pens.filter((t) => !drawn.includes(t)).map((t) => (
+              <button key={t} type="button" className="tb-icon" aria-pressed={choice === t} onClick={() => choose(t)} aria-label={TOOL_STYLE[t].label} title={TOOL_STYLE[t].label}>
+                <span className={`nib nib-${t}`} aria-hidden="true" />
+              </button>
+            ))}
+            <button type="button" className="tb-icon" aria-pressed={choice === 'eraser'} onClick={() => choose('eraser')} aria-label="Eraser" title="Eraser">
+              <span className="nib nib-eraser" aria-hidden="true" />
+            </button>
+            <button type="button" className="tb-icon" onClick={undo} disabled={!history.length} aria-label="Undo" title="Undo">↶</button>
+          </span>
+          <button type="button" className="tb-tuck" onClick={() => tuckBar(true)} aria-label="Minimize the toolbar" title="Tuck the toolbar away">
+            {/* A chevron pointing down: the toolbar sinks away. */}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
           </button>
-          <button type="button" className="tb-icon" onClick={undo} disabled={!history.length} aria-label="Undo" title="Undo">↶</button>
-        </span>
+          </>
+        )}
       </div>
     </div>
   );

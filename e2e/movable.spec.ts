@@ -87,6 +87,114 @@ test.describe('the toolbar', () => {
   });
 });
 
+test.describe('the toolbar, tucked away', () => {
+  // The user: "the toolbar can be minimized, so you can put it off to the side and not have
+  // it always maximized with all the tools out there".
+  const tuck = (page: Page) => page.getByRole('button', { name: 'Minimize the toolbar', exact: true });
+  const open = (page: Page) => page.getByRole('button', { name: 'Show the toolbar', exact: true });
+  const move = (page: Page) => page.getByRole('button', { name: 'Move the toolbar', exact: true });
+
+  test('tucks to a small button off to the side, with the tools out of the way', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    const full = await box(page, '.toolbar');
+    await tuck(page).click();
+    await expect(open(page)).toBeInViewport({ ratio: 1 });
+    await expect(page.getByRole('button', { name: 'Menu', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Next chapter', exact: true })).toHaveCount(0);
+    const small = await box(page, '.toolbar');
+    expect(small.width).toBeLessThan(160);
+    expect(small.width).toBeLessThan(full.width / 2);
+    // Off to the side, not where the toolbar was.
+    expect(small.x + small.width).toBeGreaterThan(page.viewportSize()!.width - 40);
+    // Still big enough for an older finger.
+    expect((await box(page, '.toolbar button:last-child')).height).toBeGreaterThanOrEqual(44);
+  });
+
+  test('comes back with every tool, where it was', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    const full = await box(page, '.toolbar');
+    await tuck(page).click();
+    await open(page).click();
+    await expect(tuck(page)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Menu', exact: true })).toBeVisible();
+    const back = await box(page, '.toolbar');
+    expect(Math.abs(back.x - full.x)).toBeLessThan(2);
+    expect(Math.abs(back.width - full.width)).toBeLessThan(2);
+  });
+
+  test('stays tucked after a reload', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    await tuck(page).click();
+    await expect(open(page)).toBeVisible();
+    await page.reload();
+    await expect(page.locator('.scripture')).toBeVisible();
+    await expect(open(page)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Menu', exact: true })).toHaveCount(0);
+  });
+
+  test('can be put anywhere, stays there, and the full toolbar keeps its own place', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    const full = await box(page, '.toolbar');
+    await tuck(page).click();
+    const grip = centre(await box(page, '.tb-grip'));
+    await dragFrom(page, grip, { x: -200, y: -300 });
+    const parked = await box(page, '.toolbar');
+    expect(parked.y).toBeLessThan(page.viewportSize()!.height - 200);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('workshop:toolbar-tucked-spot'))).toContain('"x"');
+    await page.reload();
+    await expect(page.locator('.scripture')).toBeVisible();
+    await expect.poll(async () => Math.abs((await box(page, '.toolbar')).y - parked.y)).toBeLessThan(2);
+    await open(page).click();
+    await expect(tuck(page)).toBeVisible();
+    const back = await box(page, '.toolbar');
+    expect(Math.abs(back.x - full.x)).toBeLessThan(2);
+    expect(Math.abs(back.y - full.y)).toBeLessThan(2);
+  });
+
+  test('parked at the far edge, it still opens wholly on screen', async ({ page }) => {
+    // One position for both would have the full toolbar start where the small one sat.
+    await beginStudy(page, 'John', 15);
+    await tuck(page).click();
+    await dragFrom(page, centre(await box(page, '.tb-grip')), { x: 2000, y: -100 });
+    await open(page).click();
+    await expect(tuck(page)).toBeVisible();
+    const b = await box(page, '.toolbar');
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  });
+
+  test('never leaves the screen, however far it is dragged', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    await tuck(page).click();
+    await dragFrom(page, centre(await box(page, '.tb-grip')), { x: 3000, y: 3000 });
+    await expect(open(page)).toBeInViewport({ ratio: 1 });
+    await dragFrom(page, centre(await box(page, '.tb-grip')), { x: -3000, y: -3000 });
+    await expect(open(page)).toBeInViewport({ ratio: 1 });
+  });
+
+  test('moves with the arrow keys too', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    await tuck(page).click();
+    const before = await box(page, '.toolbar');
+    await move(page).focus();
+    await page.keyboard.press('ArrowUp');
+    await expect.poll(async () => (await box(page, '.toolbar')).y).toBeLessThan(before.y);
+  });
+
+  test('the pen keeps writing while it is tucked', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    await tuck(page).click();
+    await page.locator('.bible-text').evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const fire = (t: string, x: number) => el.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'pen', clientX: r.left + x, clientY: r.top + 80, pressure: 0.5, buttons: 1 }));
+      fire('pointerdown', 40);
+      for (let i = 1; i < 8; i++) fire('pointermove', 40 + i * 20);
+      fire('pointerup', 180);
+    });
+    await expect(page.locator('.bible-text svg.ink path')).toHaveCount(1);
+  });
+});
+
 test.describe('the pen', () => {
   test('is picked up out of the toolbar and laid on the page, where it stays', async ({ page }, info) => {
     noPens(info.project.name);
