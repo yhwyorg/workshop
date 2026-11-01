@@ -59,8 +59,14 @@ export interface Study {
   notes: Partial<Record<Sheet, string>>;
   /** "verseKey:wordIndex" -> mark. */
   marks: Record<string, Mark>;
-  /** Handwriting by surface ("pad", "bible:15", …). Absent on studies with none. */
+  /** Handwriting by surface ("pad", "pad:2", "bible:15", …). Absent on studies with none. */
   ink?: Record<string, Ink>;
+  /**
+   * The typing on the notes' second page onward. Page one stays in notes.page and its ink
+   * in "pad", where it has always been, so a study from before pages needs nothing moved.
+   * Absent on a study of one page.
+   */
+  notePages?: string[];
 }
 
 /**
@@ -148,6 +154,9 @@ function checkStudy(p: unknown, where: string): asserts p is Study {
   for (const [k, v] of Object.entries(x.notes)) {
     if (!SHEETS.includes(k as Sheet) || typeof v !== 'string') throw new Error(`${where} has an unknown sheet "${k}"`);
   }
+  if (x.notePages !== undefined && !(Array.isArray(x.notePages) && x.notePages.every((t) => typeof t === 'string'))) {
+    throw new Error(`${where} has damaged pages of notes`);
+  }
   checkMarked({ marks: x.marks, ink: x.ink ?? {} }, where);
 }
 
@@ -195,6 +204,49 @@ export function importStudy(text: string): Study {
   if (study === undefined) throw new Error('This file isn’t a saved study.');
   checkStudy(study, 'the study');
   return { ...study, id: crypto.randomUUID() };
+}
+
+/** How many pages of notes a study has. */
+export const notePageCount = (s: Study) => 1 + (s.notePages?.length ?? 0);
+
+/** The surface holding the ink on a page of notes (counted from 1). */
+export const notePageSurface = (page: number) => (page === 1 ? 'pad' : `pad:${page}`);
+
+/** The typing on a page of notes. */
+export const notePageText = (s: Study, page: number) => (page === 1 ? s.notes.page : s.notePages?.[page - 2]) ?? '';
+
+export function withNotePageText(s: Study, page: number, text: string): Study {
+  if (page === 1) return { ...s, notes: { ...s.notes, page: text } };
+  const notePages = [...(s.notePages ?? [])];
+  notePages[page - 2] = text;
+  return { ...s, notePages };
+}
+
+/** True when a page holds no typing and no ink. */
+export const notePageBlank = (s: Study, page: number) => !notePageText(s, page).trim() && !s.ink?.[notePageSurface(page)]?.strokes.length;
+
+export const withNewNotePage = (s: Study): Study => ({ ...s, notePages: [...(s.notePages ?? []), ''] });
+
+/**
+ * A study without one of its later pages. Those after it move up, their ink with them, or
+ * each would be left with the writing of the page after it. The first page stays: it holds
+ * the study's title and date.
+ */
+export function withoutNotePage(s: Study, page: number): Study {
+  if (page < 2 || page > notePageCount(s)) return s;
+  const { notePages: all = [], ...rest } = s;
+  const notePages = all.filter((_, i) => i !== page - 2);
+  const ink = { ...s.ink };
+  delete ink[notePageSurface(page)];
+  for (let p = page + 1; p <= all.length + 1; p++) {
+    const moved = ink[notePageSurface(p)];
+    delete ink[notePageSurface(p)];
+    if (moved) ink[notePageSurface(p - 1)] = moved;
+  }
+  const out: Study = notePages.length ? { ...rest, notePages } : rest;
+  if (Object.keys(ink).length) out.ink = ink;
+  else delete out.ink;
+  return out;
 }
 
 export const nextMark = (m: Mark | undefined): Mark | undefined =>

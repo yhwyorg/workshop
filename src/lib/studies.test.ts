@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { STORE_KEY, exportStudy, importStudy, load, newStudy, nextMark, save, type KV } from './studies';
+import {
+  STORE_KEY, exportStudy, importStudy, load, newStudy, nextMark, notePageBlank, notePageCount, notePageSurface, notePageText,
+  save, withNewNotePage, withNotePageText, withoutNotePage, type Ink, type KV,
+} from './studies';
 
 const memory = (init: Record<string, string> = {}): KV & { data: Record<string, string> } => {
   const data = { ...init };
@@ -37,6 +40,63 @@ describe('loading saved studies', () => {
   it('reports storage that cannot be written before anything is typed', () => {
     const kv: KV = { getItem: () => null, setItem: () => { throw new Error('QuotaExceededError'); } };
     expect(load(kv)).toEqual({ state: 'unavailable', reason: 'QuotaExceededError' });
+  });
+});
+
+describe('pages of notes', () => {
+  const inked = (y: number): Ink => ({ width: 460, strokes: [{ tool: 'pen', pts: [1, y, 0.5] }] });
+
+  it('a study from before pages is one page, its notes and ink where they were', () => {
+    const s = { ...newStudy('John 15', ''), notes: { page: 'Abide.' }, ink: { pad: inked(1) } };
+    expect(notePageCount(s)).toBe(1);
+    expect(notePageText(s, 1)).toBe('Abide.');
+    expect(notePageSurface(1)).toBe('pad');
+  });
+
+  it('keeps each page’s typing to itself', () => {
+    const s = withNotePageText(withNewNotePage({ ...newStudy('John 15', ''), notes: { page: 'One' } }), 2, 'Two');
+    expect([notePageCount(s), notePageText(s, 1), notePageText(s, 2)]).toEqual([2, 'One', 'Two']);
+    expect(s.notePages).toEqual(['Two']);
+  });
+
+  it('calls a page blank only with no typing and no ink', () => {
+    const s = withNewNotePage(newStudy('John 15', ''));
+    expect(notePageBlank(s, 2)).toBe(true);
+    expect(notePageBlank(withNotePageText(s, 2, 'x'), 2)).toBe(false);
+    expect(notePageBlank({ ...s, ink: { 'pad:2': inked(1) } }, 2)).toBe(false);
+    expect(notePageBlank({ ...s, ink: { 'pad:2': { width: 460, strokes: [] } } }, 2)).toBe(true);
+  });
+
+  it('removing a page moves the later ones up, their ink with them', () => {
+    // Left where it was, page 3's ink would have appeared on nothing, or on the wrong page.
+    const s = { ...newStudy('John 15', ''), notePages: ['Two', 'Three', 'Four'], ink: { pad: inked(1), 'pad:2': inked(2), 'pad:3': inked(3), 'pad:4': inked(4) } };
+    const out = withoutNotePage(s, 2);
+    expect(out.notePages).toEqual(['Three', 'Four']);
+    expect(out.ink).toEqual({ pad: inked(1), 'pad:2': inked(3), 'pad:3': inked(4) });
+  });
+
+  it('removing the only later page leaves a study of one page, as if it had never had more', () => {
+    const s = { ...newStudy('John 15', ''), notePages: ['Two'], ink: { 'pad:2': inked(2) } };
+    const out = withoutNotePage(s, 2);
+    expect(out.notePages).toBeUndefined();
+    expect(out.ink).toBeUndefined();
+  });
+
+  it('the first page can’t be removed: it holds the title and date', () => {
+    const s = { ...newStudy('John 15', ''), notes: { page: 'One' }, notePages: ['Two'] };
+    expect(withoutNotePage(s, 1)).toBe(s);
+  });
+
+  it('go with a saved copy', () => {
+    const s = { ...newStudy('John 15', ''), notePages: ['Two'], ink: { 'pad:2': inked(2) } };
+    const back = importStudy(exportStudy(s));
+    expect(back.notePages).toEqual(['Two']);
+    expect(back.ink?.['pad:2']).toEqual(inked(2));
+  });
+
+  it('a damaged list of pages is refused, not read as none, so it can’t be saved over', () => {
+    const s = { ...newStudy('John 15', ''), notePages: ['Two', 3] };
+    expect(load(memory({ [STORE_KEY]: JSON.stringify({ version: 1, pads: [s] }) })).state).toBe('corrupt');
   });
 });
 
