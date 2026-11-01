@@ -252,6 +252,19 @@ button:disabled { opacity: 0.35; cursor: default; }
 .picker-note { margin: 0 6px 8px; font-size: 0.86rem; }
 
 .bible-col { width: min(var(--bible-w), 100% - 40px); margin: 0 auto; animation: turn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* The margin runs the whole height of the chapter, so a note can go beside any verse. */
+.bible-col.with-margin { display: grid; grid-template-columns: minmax(0, 1fr) 180px; column-gap: 0; }
+.bible-margin {
+  margin-left: 12px; min-height: 100%; border-left: 1px solid var(--hairline); border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--slip-ink) 3%, transparent); cursor: crosshair;
+}
+.margin-empty { margin: 0; padding: 72px 12px 0; color: var(--slip-ink); opacity: 0.7; font-family: var(--font-ui); font-size: 18px; line-height: 1.35; pointer-events: none; }
+.margin-note { margin: 0 0 12px; text-align: center; }
+.margin-show {
+  all: unset; box-sizing: border-box; display: inline-block; min-height: 44px; padding: 11px 16px; border-radius: 12px; cursor: pointer;
+  background: color-mix(in srgb, var(--slip-ink) 8%, transparent); color: var(--slip-ink); font-family: var(--font-ui); font-size: 16px; font-weight: 600;
+}
+.margin-show:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .book-name { text-align: center; margin: 0 0 22px; font-family: var(--font-scripture); font-variant: small-caps; letter-spacing: 0.14em; color: var(--muted); }
 .scripture { font-family: var(--font-scripture); font-optical-sizing: auto; font-size: 1.2rem; line-height: 1.75; margin: 0; color: var(--slip-ink); }
 
@@ -471,14 +484,19 @@ button:disabled { opacity: 0.35; cursor: default; }
 .tb-pens { display: flex; align-items: center; gap: 2px; }
 /* Looking up the Greek or Hebrew: a word, not an icon, so it says what it does. */
 .tb-look {
-  all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px;
+  all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; height: 44px; padding: 0 12px;
   border-radius: 12px; cursor: pointer; font-family: var(--font-ui); font-size: 16px; font-weight: 600; color: var(--slip-ink);
 }
-.tb-look:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); }
+/* Only with a real pointer: after a tap a touch screen keeps :hover, and a button that
+   is off would go on looking on. */
+@media (hover: hover) { .tb-look:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); } }
 /* On, it stands out more than a pen does: the page behaves differently while it is. */
 .tb-look[aria-pressed='true'] { background: var(--accent); color: var(--slip); }
 .tb-look:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tb-look-letters { font-family: var(--font-scripture); font-size: 18px; }
+/* On, the margin only adds room: the page still behaves as it did, so no red. */
+.tb-margin[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 12%, transparent); color: var(--slip-ink); }
+.tb-margin svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; }
 @media (max-width: 1099px) {
   /* One row for an ordinary chapter, measured on an upright iPad and a phone. The room
      comes from the dividers and the padding: the buttons stay 44px, for older hands. */
@@ -554,7 +572,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 .fountain[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 9%, transparent); }
 /* Narrower screens: a smaller pen, so the toolbar fits an upright iPad. With the grip
    added it ran 841px wide on an 834px screen (caught in CI), even in its home position. */
-@media (max-width: 1099px) { .toolbar .pen-photo { width: 144px; } .pen-art.fountain { width: 144px; } }
+@media (max-width: 1099px) { .toolbar .pen-photo { width: 124px; } .pen-art.fountain { width: 124px; } }
 
 /* An Apple Pencil always writes and a finger never does, so a touch device has no
    use for "Read"; it exists for the mouse. */
@@ -683,6 +701,10 @@ button:disabled { opacity: 0.35; cursor: default; }
   .workspace { position: static; display: block; }
   .pane { overflow: visible; padding: 0; background: #fff !important; border: 0 !important; }
   .bible-col, .notes-col { width: auto; animation: none; }
+  /* Print sets the text at its own size, so a note would no longer sit beside its verse.
+     Left out, and the screen's two columns with it, rather than printed beside wrong verses. */
+  .bible-col.with-margin { display: block; }
+  .bible-margin, .margin-note { display: none !important; }
   .scripture { font-size: 11.5pt; line-height: 1.6; }
   /* Print just the study's verses, unless there is ink on the page: removing the
      context verses would move the text out from under what was written on it. */

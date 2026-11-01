@@ -70,7 +70,7 @@ export interface Study {
 export interface BookMarks {
   /** "verseKey:wordIndex" -> mark, as on a study. */
   marks: Record<string, Mark>;
-  /** Ink by chapter number ("15"). */
+  /** Ink by chapter number ("15"), and in that chapter's margin ("margin:15"). */
   ink: Record<string, Ink>;
 }
 /** By book code ("JOH"). */

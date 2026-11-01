@@ -75,6 +75,22 @@ describe('one Bible, every study', () => {
   });
 });
 
+describe('the margin', () => {
+  it('moves into the Bible from a saved copy, beside the chapter’s own ink and not over it', () => {
+    const s = study('John 15', '2026-11-01T10:00:00Z', { ink: { 'margin:15': inked([1, 2, 0.5]), 'bible:15': inked([3, 3, 0.5]) } });
+    const out = intoBible({ version: 1, pads: [s] });
+    expect(out.bible?.JOH.ink['margin:15'].strokes).toHaveLength(1);
+    expect(out.bible?.JOH.ink['15'].strokes).toHaveLength(1);
+    expect(out.pads[0].ink).toBeUndefined();
+  });
+
+  it('goes with a saved copy, on its own chapters only', () => {
+    const bible = { JOH: { marks: {}, ink: { 'margin:15': inked([1, 2, 0.5]), 'margin:14': inked([4, 4, 0.5]) } } };
+    const copy = withBible(study('John 15', '2026-11-01T10:00:00Z'), bible, [15]);
+    expect(Object.keys(copy.ink ?? {})).toEqual(['margin:15']);
+  });
+});
+
 describe('a saved copy of a study', () => {
   const bible = {
     JOH: {

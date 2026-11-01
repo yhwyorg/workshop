@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { bibleKey } from '../lib/bible';
 import { BY_CODE, shortName } from '../lib/books';
 import { inkBottom, TOOL_STYLE } from '../lib/ink';
 import { coversExactly, LAYOUT, loadLayout, spoken, type ChapterLayout, type Part } from '../lib/layout';
@@ -65,6 +66,8 @@ const PENCIL_KEY = 'workshop:pencil';
 const NOTES_WIDTH_KEY = 'workshop:notes-width';
 const NOTES_HEIGHT_KEY = 'workshop:notes-height';
 const NO_MARKS: Record<string, Mark> = {};
+/** "1" when the margin beside the Bible is open. */
+const MARGIN_KEY = 'workshop:margin';
 /** "1" when the notepad is folded away. */
 const FOLDED_KEY = 'workshop:notes-folded';
 const sizePref = (k: string) => {
@@ -97,6 +100,9 @@ const LOCK_KEY = 'workshop:scroll-lock';
  * these; a narrower column shows them scaled down (see Fit), never rewrapped.
  */
 const BIBLE_W = 560;
+// The margin is added to the page rather than taken from the text, so no line of the
+// text rewraps: the page as a whole is scaled to fit, and ink stays on its words.
+const MARGIN_W = 180;
 const NOTES_W = 460;
 
 /**
@@ -163,6 +169,11 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   const [notesWidth, setNotesWidth] = useState(() => sizePref(NOTES_WIDTH_KEY));
   const [notesHeight, setNotesHeight] = useState(() => sizePref(NOTES_HEIGHT_KEY));
   const [folded, setFolded] = useState(() => pref.get(FOLDED_KEY) === '1');
+  const [marginOpen, setMarginOpen] = useState(() => pref.get(MARGIN_KEY) === '1');
+  const chooseMargin = (on: boolean) => {
+    setMarginOpen(on);
+    pref.set(MARGIN_KEY, on ? '1' : '0');
+  };
   const [barSpot, setBarSpot] = useState(() => spotPref(BAR_SPOT_KEY));
   const [penSpot, setPenSpot] = useState(() => spotPref(PEN_SPOT_KEY));
   const toolbar = useRef<HTMLDivElement>(null);
@@ -227,16 +238,15 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   // chapter, unless this study still holds its own: ink written on another setting of
   // the text, which bible.ts leaves here rather than over the wrong words.
   const mine = bible?.[passage.book];
-  const chapterOfSurface = (surface: string) => /^bible:(\d+)$/.exec(surface)?.[1];
-  const inBible = (surface: string) => !!chapterOfSurface(surface) && !study.ink?.[surface];
-  const inkOf = (surface: string) => (inBible(surface) ? mine?.ink[chapterOfSurface(surface)!] : study.ink?.[surface]);
+  const inBible = (surface: string) => !!bibleKey(surface) && !study.ink?.[surface];
+  const inkOf = (surface: string) => (inBible(surface) ? mine?.ink[bibleKey(surface)!] : study.ink?.[surface]);
   const putInk = (surface: string, ink: Ink | undefined) => {
     if (inBible(surface)) {
-      const ch = chapterOfSurface(surface)!;
+      const at = bibleKey(surface)!;
       updateBible(passage.book, (b) => {
         const next = { ...b.ink };
-        if (ink) next[ch] = ink;
-        else delete next[ch];
+        if (ink) next[at] = ink;
+        else delete next[at];
         return { ...b, ink: next };
       });
     } else {
@@ -448,12 +458,14 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
             <p className="look-hint" role="status">Tap a verse to see it in the {language}.</p>
           </div>
         )}
-        <Fit width={BIBLE_W} gutter={20} on={!phone} onScale={setBibleScale}>
+        <Fit width={marginOpen && !phone ? BIBLE_W + MARGIN_W : BIBLE_W} gutter={20} on={!phone} onScale={setBibleScale}>
           <BibleText
             key={ch} passage={passage} chapter={ch} name={name} book={book} marks={mine?.marks ?? NO_MARKS} onMark={mark}
             layout={layout === 'failed' ? 'failed' : layout?.[ch - 1] ?? null}
             onVerse={(v) => { setOpened(v); setComparing(false); setJump(false); }} looking={looking}
             ink={inkOf(`bible:${ch}`)} setInk={setInk(`bible:${ch}`)} {...pen}
+            margin={marginOpen && !phone} phone={phone} showMargin={() => chooseMargin(true)} fingerWrites={!pencil}
+            marginInk={inkOf(`margin:${ch}`)} setMarginInk={setInk(`margin:${ch}`)}
           />
         </Fit>
       </section>
@@ -581,6 +593,17 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
           <span className="tb-look-letters" aria-hidden="true">{language === 'Greek' ? 'αβ' : 'אב'}</span>
           <span className="tb-look-word" aria-hidden="true">{language}</span>
         </button>
+        {/* Not on a phone: there is no room beside the text there. */}
+        {!phone && (
+          <button
+            type="button" className="tb-look tb-margin" aria-pressed={marginOpen} onClick={() => chooseMargin(!marginOpen)}
+            aria-label="Margin" title="Open a margin to write in beside the verses"
+          >
+            {/* A page with a ruled margin down its right side. */}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2" /><path d="M15 3.5v17M7 8h5M7 12h5M7 16h5" /></svg>
+            <span className="tb-look-word" aria-hidden="true">Margin</span>
+          </button>
+        )}
         {references.length > 0 && !phone && (
           <button
             type="button" className="tb-icon tb-lock" onClick={lock} aria-pressed={locked} aria-label="Scroll together"
@@ -634,7 +657,10 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   );
 }
 
-function BibleText({ passage, chapter, name, book, layout, marks, onMark, onVerse, looking, ink, setInk, tool, mouseDraws, onPen }: {
+function BibleText({
+  passage, chapter, name, book, layout, marks, onMark, onVerse, looking, ink, setInk, tool, mouseDraws, onPen,
+  margin, phone, showMargin, fingerWrites, marginInk, setMarginInk,
+}: {
   passage: Passage;
   chapter: number;
   name: string;
@@ -652,6 +678,14 @@ function BibleText({ passage, chapter, name, book, layout, marks, onMark, onVers
   tool: Tool | 'eraser';
   mouseDraws: boolean;
   onPen: () => void;
+  /** The margin is open beside the text. */
+  margin: boolean;
+  phone: boolean;
+  showMargin: () => void;
+  /** No Pencil has been seen: a finger writes in the margin, as on the notes. */
+  fingerWrites: boolean;
+  marginInk: Ink | undefined;
+  setMarginInk: (ink: Ink) => void;
 }) {
   const inStudy = (k: VerseKey) => k >= passage.start && k <= passage.end;
   // A study of whole chapters needs no emphasis; a few verses within a chapter are set
@@ -669,6 +703,7 @@ function BibleText({ passage, chapter, name, book, layout, marks, onMark, onVers
   const set = layout && layout !== 'failed' && !oldInk && coversExactly(layout, verses) ? layout : null;
   // Ink written from here on records the setting it was written on.
   const write = (next: Ink) => setInk(set ? { ...next, layout: LAYOUT } : next);
+  const hasMarginNotes = !!marginInk?.strokes.length;
 
   const word = (k: VerseKey, at: number, tok: string, wj: boolean) => {
     const m = marks[`${k}:${at}`];
@@ -711,47 +746,67 @@ function BibleText({ passage, chapter, name, book, layout, marks, onMark, onVers
   };
 
   return (
-    <div className="bible-col">
-      <p className="book-name">{name}</p>
-      <InkSurface ink={ink} onChange={write} tool={tool} mouseDraws={mouseDraws} writes={!looking} onPen={onPen} className="bible-text">
-        {book.state === 'loading' || (layout === null && !oldInk) ? (
-          <p className="quiet">Opening {name}…</p>
-        ) : book.state === 'failed' ? (
-          <p className="error" role="alert">{name} couldn’t be opened: {book.message}</p>
-        ) : set ? (
-          <div className={`scripture typeset${wholeChapters ? '' : ' partial'}${ink?.strokes.length ? ' inked' : ''}`}>
-            {set.blocks.map((b, bi) =>
-              b[0] === 'h' ? (
-                <p key={bi} className={`blk-h blk-h-${b[1]}`}>{b[2] as string}</p>
-              ) : b[0] === 'b' ? (
-                <div key={bi} className="blk-b" aria-hidden="true" />
-              ) : (
-                <p key={bi} className={`blk blk-${b[0]}`}>{(b[1] as Part[]).map(part)}</p>
-              ),
-            )}
-          </div>
-        ) : (
-          <p className={`scripture${wholeChapters ? '' : ' partial'}${ink?.strokes.length ? ' inked' : ''}`}>
-            {verses.map((text, vi) => {
-              const k = key(chapter, vi + 1);
-              let i = -1;
-              return (
-                <span key={k} className={`v-part v${inStudy(k) ? ' in-study' : ''}`} data-verse={vi + 1}>
-                  {number(vi + 1)}
-                  {text.split(/(\s+)/).map((tok, ti) => {
-                    if (/^\s*$/.test(tok)) return <Fragment key={ti}>{tok}</Fragment>;
-                    i++;
-                    return <Fragment key={ti}>{word(k, i, tok, false)}</Fragment>;
-                  })}{' '}
-                </span>
-              );
-            })}
-          </p>
+    <div className={`bible-col${margin ? ' with-margin' : ''}`}>
+      <div className="bible-main">
+        <p className="book-name">{name}</p>
+        {/* Notes out of sight must say so: a closed margin would read as notes lost. */}
+        {hasMarginNotes && !margin && (
+          phone ? (
+            <p className="translation set-note margin-note">This chapter has notes in its margin. They show on an iPad or a laptop.</p>
+          ) : (
+            <p className="margin-note"><button type="button" className="margin-show" onClick={showMargin}>Show your margin notes</button></p>
+          )
         )}
-      </InkSurface>
-      {oldInk && <p className="translation set-note">Set as it was when you wrote on it</p>}
-      {layout === 'failed' && !oldInk && <p className="translation set-note">Set without paragraphs: the layout couldn’t be loaded</p>}
-      <p className="translation">World English Bible</p>
+        <InkSurface ink={ink} onChange={write} tool={tool} mouseDraws={mouseDraws} writes={!looking} onPen={onPen} className="bible-text">
+          {book.state === 'loading' || (layout === null && !oldInk) ? (
+            <p className="quiet">Opening {name}…</p>
+          ) : book.state === 'failed' ? (
+            <p className="error" role="alert">{name} couldn’t be opened: {book.message}</p>
+          ) : set ? (
+            <div className={`scripture typeset${wholeChapters ? '' : ' partial'}${ink?.strokes.length ? ' inked' : ''}`}>
+              {set.blocks.map((b, bi) =>
+                b[0] === 'h' ? (
+                  <p key={bi} className={`blk-h blk-h-${b[1]}`}>{b[2] as string}</p>
+                ) : b[0] === 'b' ? (
+                  <div key={bi} className="blk-b" aria-hidden="true" />
+                ) : (
+                  <p key={bi} className={`blk blk-${b[0]}`}>{(b[1] as Part[]).map(part)}</p>
+                ),
+              )}
+            </div>
+          ) : (
+            <p className={`scripture${wholeChapters ? '' : ' partial'}${ink?.strokes.length ? ' inked' : ''}`}>
+              {verses.map((text, vi) => {
+                const k = key(chapter, vi + 1);
+                let i = -1;
+                return (
+                  <span key={k} className={`v-part v${inStudy(k) ? ' in-study' : ''}`} data-verse={vi + 1}>
+                    {number(vi + 1)}
+                    {text.split(/(\s+)/).map((tok, ti) => {
+                      if (/^\s*$/.test(tok)) return <Fragment key={ti}>{tok}</Fragment>;
+                      i++;
+                      return <Fragment key={ti}>{word(k, i, tok, false)}</Fragment>;
+                    })}{' '}
+                  </span>
+                );
+              })}
+            </p>
+          )}
+        </InkSurface>
+        {oldInk && <p className="translation set-note">Set as it was when you wrote on it</p>}
+        {layout === 'failed' && !oldInk && <p className="translation set-note">Set without paragraphs: the layout couldn’t be loaded</p>}
+        <p className="translation">World English Bible</p>
+      </div>
+      {/* Nothing here to tap, so everything writes, with no pen to choose first. It has
+          no text of its own to keep to the Bible's setting, so its ink is its own. */}
+      {margin && (
+        <InkSurface
+          ink={marginInk} onChange={(next) => setMarginInk({ ...next, layout: LAYOUT })} tool={tool} mouseDraws fingerDraws={fingerWrites && !looking}
+          writes={!looking} onPen={onPen} className="bible-margin"
+        >
+          {!hasMarginNotes && <p className="margin-empty">Write here, beside the verses.</p>}
+        </InkSurface>
+      )}
     </div>
   );
 }

@@ -12,7 +12,15 @@ import { LAYOUT } from './layout';
 import { bookOf, chapterOf } from './refs';
 import type { Bible, Ink, Store, Study } from './studies';
 
-const BIBLE_INK = /^bible:(\d+)$/;
+/**
+ * Where ink on a surface is kept in a book of the Bible: the text's ink by chapter ("15"),
+ * the margin's beside it ("margin:15"). Null for a surface that isn't on the Bible (the
+ * notepad). The margin has its own ink so that opening it changes nothing on the text.
+ */
+export function bibleKey(surface: string): string | null {
+  const m = /^(bible|margin):(\d+)$/.exec(surface);
+  return !m ? null : m[1] === 'bible' ? m[2] : surface;
+}
 
 /** The store with every study's marks and ink on the Bible moved into the one Bible. */
 export function intoBible(store: Store): Store {
@@ -42,11 +50,11 @@ export function intoBible(store: Store): Store {
       const ink = { ...s.ink };
       let inkMoved = false;
       for (const surface of Object.keys(ink)) {
-        const ch = BIBLE_INK.exec(surface)?.[1];
-        if (!ch || (ink[surface].layout === LAYOUT) !== current) continue;
-        const joined = join(bible[book]?.ink[ch], ink[surface]);
+        const at = bibleKey(surface);
+        if (!at || (ink[surface].layout === LAYOUT) !== current) continue;
+        const joined = join(bible[book]?.ink[at], ink[surface]);
         if (!joined) continue;
-        own(book).ink[ch] = joined;
+        own(book).ink[at] = joined;
         delete ink[surface];
         inkMoved = true;
       }
@@ -88,6 +96,11 @@ export function withBible(study: Study, bible: Bible | undefined, chapters: numb
   for (const [k, m] of Object.entries(b.marks)) if (chapters.includes(chapterOf(Number(k.split(':')[0])))) marks[k] ??= m;
   const ink = { ...study.ink };
   // Ink left on the study (written on another setting) is the study's own, and kept.
-  for (const ch of chapters) if (b.ink[ch] && !ink[`bible:${ch}`]) ink[`bible:${ch}`] = b.ink[ch];
+  for (const ch of chapters) {
+    for (const surface of [`bible:${ch}`, `margin:${ch}`]) {
+      const held = b.ink[bibleKey(surface)!];
+      if (held && !ink[surface]) ink[surface] = held;
+    }
+  }
   return { ...study, marks, ...(Object.keys(ink).length ? { ink } : {}) };
 }
