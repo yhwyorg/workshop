@@ -1,4 +1,4 @@
-import { beginStudy, draw, expect, savedStudies, show, test, typeNotes } from './fixtures';
+import { beginStudy, draw, expect, savedBible, savedStudies, show, test, typeNotes } from './fixtures';
 
 test.describe('beginning', () => {
   test('a first visit opens the Bible to choose where to begin', async ({ page }) => {
@@ -70,7 +70,7 @@ test.describe('working on a passage', () => {
     await beginStudy(page, 'John', 15);
     await draw(page, '.bible-text', 'touch', [40, 40], [200, 40]);
     await draw(page, '.bible-text', 'pen', [40, 80], [200, 90]);
-    await expect.poll(async () => (await savedStudies(page))[0]?.ink?.['bible:15']?.strokes?.length).toBe(1);
+    await expect.poll(async () => (await savedBible(page)).ink['15']?.strokes?.length).toBe(1);
     await expect(page.locator('.bible-text svg.ink path')).toHaveCount(1);
   });
 
@@ -81,8 +81,8 @@ test.describe('working on a passage', () => {
     const at: [number, number] = [box.x - page_.x + 5, box.y - page_.y + 5];
     await draw(page, '.bible-text', 'pen', at, [at[0] + 2, at[1] + 1]);
     await page.getByRole('button', { name: 'farmer.', exact: true }).dispatchEvent('click');
-    await expect.poll(async () => (await savedStudies(page))[0]?.ink?.['bible:15']?.strokes?.length).toBe(1);
-    expect((await savedStudies(page))[0].marks).toEqual({});
+    await expect.poll(async () => (await savedBible(page)).ink['15']?.strokes?.length).toBe(1);
+    expect((await savedBible(page)).marks).toEqual({});
   });
 });
 

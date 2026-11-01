@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { beginStudy, draw, expect, forgiveFailedLoads, recordedApi, savedStudies, test } from './fixtures';
+import { beginStudy, draw, expect, forgiveFailedLoads, recordedApi, savedBible, test } from './fixtures';
 
 /**
  * Opening a verse: tap its number to see where else Scripture speaks to it (its Old
@@ -96,9 +96,9 @@ test.describe('opening a verse', () => {
     await openVerse(page, 6);
     await page.keyboard.press('Escape');
     await expect(panel(page, 'John 15:6')).toHaveCount(0);
-    const s = (await savedStudies(page))[0];
-    expect(s.marks).toEqual({});
-    expect(s.ink?.['bible:15']).toBeUndefined();
+    const b = await savedBible(page);
+    expect(b.marks).toEqual({});
+    expect(b.ink['15']).toBeUndefined();
   });
 
   test('a Pencil on a verse number writes; it does not open the verse', async ({ page }) => {
@@ -109,7 +109,7 @@ test.describe('opening a verse', () => {
     const at: [number, number] = [n.x - s.x + n.width / 2, n.y - s.y + n.height / 2];
     await draw(page, '.bible-text', 'pen', at, [at[0] + 1, at[1] + 1]);
     await page.getByRole('button', { name: 'Verse 5', exact: true }).dispatchEvent('click');
-    await expect.poll(async () => (await savedStudies(page))[0]?.ink?.['bible:15']?.strokes?.length).toBe(1);
+    await expect.poll(async () => (await savedBible(page)).ink['15']?.strokes?.length).toBe(1);
     await expect(panel(page, 'John 15:5')).toHaveCount(0);
   });
 });

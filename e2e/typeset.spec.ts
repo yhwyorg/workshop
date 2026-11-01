@@ -1,4 +1,4 @@
-import { beginStudy, draw, expect, savedStudies, test } from './fixtures';
+import { beginStudy, draw, expect, savedBible, savedStudies, test } from './fixtures';
 
 /**
  * The Bible set as a printed Bible sets it: paragraphs, poetry in lines under a psalm's
@@ -83,7 +83,7 @@ test.describe('setting the text', () => {
   test('ink written on a chapter set in paragraphs says so, and keeps it', async ({ page }) => {
     await beginStudy(page, 'John', 15);
     await draw(page, '.bible-text', 'pen', [40, 80], [200, 90]);
-    await expect.poll(async () => (await savedStudies(page))[0]?.ink?.['bible:15']?.layout).toBe(2);
+    await expect.poll(async () => (await savedBible(page)).ink['15']?.layout).toBe(2);
     await page.reload();
     await expect(page.locator('.scripture .blk-p')).toHaveCount(5);
   });
