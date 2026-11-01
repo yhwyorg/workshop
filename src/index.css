@@ -399,7 +399,8 @@ button:disabled { opacity: 0.35; cursor: default; }
   /* From the skin: solid rules, or a notebook's dotted ones (see rules() in skin.ts). */
   background-image: var(--pad-rules, repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px) var(--line)));
 }
-.pad-label { display: none; }
+/* Not a target: over the title box, a tap on "TITLE" started typing in the notes instead. */
+.pad-label { display: none; pointer-events: none; }
 .pad-sep, .pad-no, .pad-date { display: inline; }
 .pad-title {
   display: block; width: 100%; height: calc(var(--line) * 2); padding: calc(var(--line) * 0.55) 0 0; border: 0; background: transparent;

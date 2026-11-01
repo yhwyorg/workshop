@@ -257,6 +257,16 @@ test.describe('no switch between writing and typing', () => {
     await expect(notes(page)).toHaveValue('');
   });
 
+  test('anywhere on the title box types the title, even on its printed label', async ({ page }) => {
+    // The notebook's "TITLE" label sits over the box's corner, and took the tap (seen in CI).
+    await beginStudy(page, 'John', 15);
+    await show(page, 'Notes');
+    const title = page.getByLabel('Title', { exact: true });
+    await title.click({ position: { x: 40, y: 10 } });
+    await expect(title).toBeFocused();
+    await expect(title).not.toHaveAttribute('readonly');
+  });
+
   test('moving from the title to the notes stays typing; leaving both goes back to writing', async ({ page }) => {
     await beginStudy(page, 'John', 15);
     await show(page, 'Notes');
