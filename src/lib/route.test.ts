@@ -10,6 +10,7 @@ describe('routes', () => {
     ['#/studies', { view: 'studies' }],
     ['#/paper', { view: 'paper' }],
     ['#/about', { view: 'about' }],
+    ['#/advent', { view: 'advent' }],
   ])('%s', (hash, want) => expect(parse(hash)).toEqual(want));
 
   it('still opens links from the first version, when studies were "pads" and paper was "skins"', () => {

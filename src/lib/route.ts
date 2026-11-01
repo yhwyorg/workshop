@@ -8,7 +8,8 @@ export type Route =
   | { view: 'new' }
   | { view: 'studies' }
   | { view: 'paper' }
-  | { view: 'about' };
+  | { view: 'about' }
+  | { view: 'advent' };
 
 export function parse(hash: string): Route {
   const [head, ...rest] = hash.replace(/^#\/?/, '').split('/');
@@ -23,6 +24,7 @@ export function parse(hash: string): Route {
     case 'skins':
       return { view: 'paper' };
     case 'about': return { view: 'about' };
+    case 'advent': return { view: 'advent' };
     default: return { view: 'home' };
   }
 }
@@ -34,6 +36,7 @@ export const href = {
   studies: () => '#/studies',
   paper: () => '#/paper',
   about: () => '#/about',
+  advent: () => '#/advent',
 };
 
 export function useRoute(): Route {

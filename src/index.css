@@ -631,6 +631,29 @@ button:disabled { opacity: 0.35; cursor: default; }
 }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
+/* ---------- Advent ---------- */
+
+.advent { font-size: 1.05rem; }
+.advent-next { font-weight: 600; }
+.advent-week { margin: 20px 0; padding: 16px 18px; border: 1px solid var(--hairline); border-radius: 14px; }
+.advent-week.now { border: 2px solid var(--accent); }
+.advent-week h2 { display: flex; align-items: center; gap: 10px; margin: 0; }
+.advent-now { padding: 3px 10px; border-radius: 999px; background: var(--accent); color: var(--slip); font-family: var(--font-ui); font-size: 0.85rem; font-weight: 600; }
+.advent-date { margin: 2px 0 12px; color: var(--muted); }
+.advent-readings { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.advent-readings button { min-height: 44px; }
+.advent-snippet { margin: 0 0 12px; padding: 2px 0 2px 14px; border-left: 3px solid var(--accent); font-family: var(--font-scripture); font-size: 1.1rem; line-height: 1.5; }
+.advent-snippet p { margin: 0; }
+.advent-snippet footer { margin-top: 4px; font-family: var(--font-ui); font-size: 0.9rem; color: var(--muted); }
+.advent-links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0; }
+.advent-links a { display: inline-block; padding: 10px 0; }
+.advent-book { margin-top: 20px; }
+/* Not a handout: what is on this page is the book's. On paper it only says where to find it. */
+@media print {
+  .advent > * { display: none !important; }
+  .advent::before { content: 'Awaken Wonder: Daily Devotions for Advent, by Darrell W. Johnson. Find the readings at workshop.yhwh.rest.'; }
+}
+
 /* ---------- About ---------- */
 
 .about { font-size: 1.05rem; }
