@@ -8,7 +8,10 @@ import type { PenKind } from '../lib/skin';
 import { keepReferences, MAX_REFERENCES, savedReferences, type Reference } from '../lib/reference';
 import { chapterOf, key, parsePassage, verseOf, type Lengths, type Passage, type VerseKey } from '../lib/refs';
 import { href } from '../lib/route';
-import { nextMark, SHEETS, type Bible, type BookMarks, type Ink, type Mark, type Sheet, type Study, type Tool } from '../lib/studies';
+import {
+  nextMark, notePageBlank, notePageCount, notePageSurface, notePageText, SHEETS, withNewNotePage, withNotePageText, withoutNotePage,
+  type Bible, type BookMarks, type Ink, type Mark, type Sheet, type Study, type Tool,
+} from '../lib/studies';
 import { loadBook } from '../lib/text';
 import Fit from './Fit';
 import NotesEdge from './NotesEdge';
@@ -66,6 +69,8 @@ const PENCIL_KEY = 'workshop:pencil';
 const NOTES_WIDTH_KEY = 'workshop:notes-width';
 const NOTES_HEIGHT_KEY = 'workshop:notes-height';
 const NO_MARKS: Record<string, Mark> = {};
+/** The page of notes each study was left on: { studyId: page }. */
+const NOTES_PAGE_KEY = 'workshop:notes-page';
 /** "1" when the margin beside the Bible is open. */
 const MARGIN_KEY = 'workshop:margin';
 /** "1" when the notepad is folded away. */
@@ -170,6 +175,18 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   const [notesHeight, setNotesHeight] = useState(() => sizePref(NOTES_HEIGHT_KEY));
   const [folded, setFolded] = useState(() => pref.get(FOLDED_KEY) === '1');
   const [marginOpen, setMarginOpen] = useState(() => pref.get(MARGIN_KEY) === '1');
+  const [notesPage, setNotesPage] = useState(1);
+  const leftOn = () => {
+    try {
+      return JSON.parse(pref.get(NOTES_PAGE_KEY) ?? '{}') as Record<string, number>;
+    } catch {
+      return {};
+    }
+  };
+  const turnTo = (page: number) => {
+    setNotesPage(page);
+    if (study) pref.set(NOTES_PAGE_KEY, JSON.stringify({ ...leftOn(), [study.id]: page }));
+  };
   const chooseMargin = (on: boolean) => {
     setMarginOpen(on);
     pref.set(MARGIN_KEY, on ? '1' : '0');
@@ -198,6 +215,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   useEffect(() => {
     setChapter(passage ? chapterOf(passage.start) : null);
     setHistory([]);
+    setNotesPage(study ? leftOn()[study.id] ?? 1 : 1);
   }, [study?.id, passage?.book]); // eslint-disable-line react-hooks/exhaustive-deps -- only a new study resets the page
 
   useEffect(() => {
@@ -298,6 +316,9 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
     if (!last) return;
     setHistory((h) => h.slice(0, -1));
     putInk(last.surface, last.before);
+    // Undoing on a page out of sight would look like nothing happening.
+    const onPage = /^pad(?::(\d+))?$/.exec(last.surface);
+    if (onPage) turnTo(Number(onPage[1] ?? 1));
   };
   const mark = (k: VerseKey, i: number) =>
     updateBible(passage.book, (b) => {
@@ -534,10 +555,12 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
             {upright ? '⌄' : '›'}
           </button>
         ))}
+        <NotesPager study={study} update={update} pageNo={Math.min(notesPage, notePageCount(study))} turnTo={turnTo} forgetUndo={() => setHistory([])} />
         {/* A bigger notepad is a bigger page: it zooms up to nearly twice its size. */}
         <Fit width={NOTES_W} gutter={16} max={1.8} on={!phone}>
           <Notes
-            study={study} update={update} ink={study.ink?.pad} setInk={setInk('pad')} mode={notesMode} setMode={chooseNotesMode}
+            study={study} update={update} pageNo={Math.min(notesPage, notePageCount(study))}
+            setInk={setInk} mode={notesMode} setMode={chooseNotesMode}
             onTyping={showNotes} {...notesPen}
           />
         </Fit>
@@ -842,11 +865,68 @@ function BibleText({
   );
 }
 
-function Notes({ study, update, ink, setInk, mode, setMode, onTyping, ...pen }: {
+/** The title and date; a notebook skin sets them in its DATE/NO. and TITLE box. */
+function PadMeta({ study }: { study: Study }) {
+  return (
+    <p className="pad-meta">
+      <span className="pad-no">{study.passage}</span>
+      <span className="pad-sep"> · </span>
+      <span className="pad-date">{new Date(study.created).toLocaleDateString(undefined, { dateStyle: 'long' })}</span>
+    </p>
+  );
+}
+
+/**
+ * Turning, adding and removing pages of notes. Outside the notepad's Fit, so it stays a
+ * steady size for the finger: inside, an upright iPad's zoom made it 1.8 times too big, a
+ * quarter of the room for writing. Held at the top of the pane, as a long page is where
+ * the next one is wanted.
+ */
+function NotesPager({ study, update, pageNo, turnTo, forgetUndo }: {
   study: Study;
   update: (id: string, change: (s: Study) => Study) => void;
-  ink: Ink | undefined;
-  setInk: (ink: Ink) => void;
+  pageNo: number;
+  turnTo: (page: number) => void;
+  /** Undo's record names pages by number, and removing a page changes the numbers. */
+  forgetUndo: () => void;
+}) {
+  const pages = notePageCount(study);
+  const addPage = () => {
+    // A blank last page is already somewhere to write: blanks shouldn't pile up.
+    if (notePageBlank(study, pages) && pages > 1) return turnTo(pages);
+    update(study.id, withNewNotePage);
+    turnTo(pages + 1);
+  };
+  const removePage = () => {
+    if (!notePageBlank(study, pageNo) && !confirm(`Remove Page ${pageNo} and what is written on it? This can’t be undone.`)) return;
+    update(study.id, (s) => withoutNotePage(s, pageNo));
+    forgetUndo();
+    turnTo(Math.min(pageNo, pages - 1));
+  };
+  return (
+    <div className="notes-bar" role="group" aria-label="Pages of notes">
+      {pages > 1 && (
+        <>
+          <button type="button" className="pager-turn" onClick={() => turnTo(pageNo - 1)} disabled={pageNo <= 1} aria-label="Previous page">‹</button>
+          <select className="pager-which" aria-label="Which page" value={pageNo} onChange={(e) => turnTo(Number(e.target.value))}>
+            {Array.from({ length: pages }, (_, i) => <option key={i} value={i + 1}>Page {i + 1} of {pages}</option>)}
+          </select>
+          <button type="button" className="pager-turn" onClick={() => turnTo(pageNo + 1)} disabled={pageNo >= pages} aria-label="Next page">›</button>
+        </>
+      )}
+      <button type="button" className="pager-add" onClick={addPage}>Add a page</button>
+      {/* The first page stays: it holds the title and date. */}
+      {pageNo > 1 && <button type="button" className="pager-remove" onClick={removePage} aria-label="Remove this page">Remove</button>}
+    </div>
+  );
+}
+
+function Notes({ study, update, pageNo, setInk, mode, setMode, onTyping, ...pen }: {
+  study: Study;
+  update: (id: string, change: (s: Study) => Study) => void;
+  /** The page on screen, counted from 1. */
+  pageNo: number;
+  setInk: (surface: string) => (ink: Ink) => void;
   mode: 'write' | 'type';
   setMode: (m: 'write' | 'type') => void;
   /** Called when typing begins, so a phone shows the notes. */
@@ -857,7 +937,14 @@ function Notes({ study, update, ink, setInk, mode, setMode, onTyping, ...pen }: 
   onPen: () => void;
 }) {
   const page = useRef<HTMLTextAreaElement>(null);
-  const body = study.notes.page ?? '';
+  const pages = notePageCount(study);
+  const body = notePageText(study, pageNo);
+  const ink = study.ink?.[notePageSurface(pageNo)];
+  const numbers = Array.from({ length: pages }, (_, i) => i + 1);
+  // A page turned starts at its top, as a page in a notebook does.
+  useEffect(() => {
+    page.current?.closest('.pane')?.scrollTo({ top: 0 });
+  }, [pageNo]);
   // The page grows with what is written instead of scrolling inside itself, so ink
   // written beside a line stays beside it; the pane scrolls instead.
   useLayoutEffect(() => {
@@ -894,7 +981,7 @@ function Notes({ study, update, ink, setInk, mode, setMode, onTyping, ...pen }: 
       if (el?.tagName === 'BUTTON' && e.key === ' ') return;
       e.preventDefault();
       typed.current = (typed.current ?? latest.current) + e.key;
-      update(study.id, (s) => ({ ...s, notes: { ...s.notes, page: typed.current! } }));
+      update(study.id, (s) => withNotePageText(s, pageNo, typed.current!));
       setMode('type');
       onTyping();
       requestAnimationFrame(() => {
@@ -907,7 +994,7 @@ function Notes({ study, update, ink, setInk, mode, setMode, onTyping, ...pen }: 
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
-  }, [study.id, update, setMode, onTyping]);
+  }, [study.id, pageNo, update, setMode, onTyping]);
   // And back: a Pencil on the notes while typing means writing. The page goes read-only
   // again, so iPadOS can't turn the handwriting into typed text.
   const onPen = () => {
@@ -924,46 +1011,73 @@ function Notes({ study, update, ink, setInk, mode, setMode, onTyping, ...pen }: 
         <button type="button" aria-pressed={writing} onClick={() => setMode('write')}>Write</button>
         <button type="button" aria-pressed={!writing} onClick={() => setMode('type')}>Type</button>
       </div>
+      {/* The other pages, for paper only: "Print my notes" means all of them, in order. */}
+      {numbers.filter((n) => n < pageNo).map((n) => <PrintedPage key={n} study={study} n={n} />)}
       <InkSurface
-        ink={ink} onChange={setInk} {...pen} onPen={onPen} className={`pad-surface${writing ? ' writing' : ''}`}
+        key={pageNo}
+        ink={ink} onChange={setInk(notePageSurface(pageNo))} {...pen} onPen={onPen} className={`pad-surface${writing ? ' writing' : ''}`}
         // Room to keep writing below the lowest line written, about ten lines' worth.
         style={inkLow ? { minHeight: inkLow + 320 } : undefined}
       >
-        {/* The title and date; a notebook skin sets them in its DATE/NO. and TITLE box.
-            Either way they are three rules tall, so ink below them never moves. */}
-        <div className="pad-head">
-          <span className="pad-label pad-label-date" aria-hidden="true">Date / No.</span>
-          <span className="pad-label pad-label-title" aria-hidden="true">Title</span>
-          <input
-            className="pad-title"
-            value={study.title}
-            placeholder="Title"
-            readOnly={writing}
-            tabIndex={writing ? -1 : undefined}
-            onChange={(e) => update(study.id, (s) => ({ ...s, title: e.target.value }))}
-            aria-label="Title"
-          />
-          <p className="pad-meta">
-            <span className="pad-no">{study.passage}</span>
-            <span className="pad-sep"> · </span>
-            <span className="pad-date">{new Date(study.created).toLocaleDateString(undefined, { dateStyle: 'long' })}</span>
-          </p>
-        </div>
+        {/* Either way they are three rules tall, so ink below them never moves. */}
+        {pageNo === 1 ? (
+          <div className="pad-head">
+            <span className="pad-label pad-label-date" aria-hidden="true">Date / No.</span>
+            <span className="pad-label pad-label-title" aria-hidden="true">Title</span>
+            <input
+              className="pad-title"
+              value={study.title}
+              placeholder="Title"
+              readOnly={writing}
+              tabIndex={writing ? -1 : undefined}
+              onChange={(e) => update(study.id, (s) => ({ ...s, title: e.target.value }))}
+              aria-label="Title"
+            />
+            <PadMeta study={study} />
+          </div>
+        ) : (
+          <p className="pad-page-no">Page {pageNo}</p>
+        )}
         <textarea
-          ref={page} className="pad-lines" value={body} onChange={(e) => write('page', e.target.value)} aria-label="Notes" rows={18}
+          ref={page} className="pad-lines" value={body} onChange={(e) => update(study.id, (s) => withNotePageText(s, pageNo, e.target.value))} aria-label="Notes" rows={18}
           readOnly={writing} tabIndex={writing ? -1 : undefined}
           placeholder={writing ? (ink?.strokes.length ? '' : 'Write here with a Pencil, a finger or the mouse…') : 'Type here…'}
         />
         {/* The same writing for print: a text box cannot break across pages, so the
             browser moved it whole to the next sheet and stranded the title. */}
         <div className="pad-lines print-text" aria-hidden="true">{body}</div>
-        {earlier.map((s) => (
+        {pageNo === 1 && earlier.map((s) => (
           <Fragment key={s}>
             <p className="pad-heading">{OLD_SHEETS[s]}</p>
             <textarea className="pad-lines short" value={study.notes[s]} onChange={(e) => write(s, e.target.value)} aria-label={OLD_SHEETS[s]} readOnly={writing} tabIndex={writing ? -1 : undefined} />
           </Fragment>
         ))}
       </InkSurface>
+      {numbers.filter((n) => n > pageNo).map((n) => <PrintedPage key={n} study={study} n={n} />)}
     </div>
+  );
+}
+
+/** A page of notes as paper shows it; on screen, only the page being worked on is drawn. */
+function PrintedPage({ study, n }: { study: Study; n: number }) {
+  const ink = study.ink?.[notePageSurface(n)];
+  const low = inkBottom(ink);
+  return (
+    <InkSurface
+      ink={ink} onChange={() => {}} tool="pen" mouseDraws={false} writes={false} className="pad-surface print-page"
+      style={low ? { minHeight: low + 320 } : undefined}
+    >
+      {n === 1 ? (
+        <div className="pad-head">
+          <span className="pad-label pad-label-date" aria-hidden="true">Date / No.</span>
+          <span className="pad-label pad-label-title" aria-hidden="true">Title</span>
+          <div className="pad-title">{study.title}</div>
+          <PadMeta study={study} />
+        </div>
+      ) : (
+        <p className="pad-page-no">Page {n}</p>
+      )}
+      <div className="pad-lines print-text">{notePageText(study, n)}</div>
+    </InkSurface>
   );
 }

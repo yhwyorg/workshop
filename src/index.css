@@ -192,7 +192,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 .workspace.notes-folded { --notes-size: 44px; }
 .notes-pane { position: relative; }
 .notes-fold {
-  position: sticky; top: 10px; float: left; z-index: 3; margin: -34px 0 0 8px; min-width: 36px; height: 36px; border: 0; border-radius: 10px;
+  position: sticky; top: 10px; float: left; z-index: 4; margin: -34px 0 0 8px; min-width: 36px; height: 36px; border: 0; border-radius: 10px;
   background: none; color: var(--muted); font-size: 1.3rem; cursor: pointer;
 }
 .notes-fold:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); }
@@ -455,6 +455,24 @@ button:disabled { opacity: 0.35; cursor: default; }
 .pad-surface.writing textarea, .pad-surface.writing input { cursor: inherit; user-select: none; -webkit-user-select: none; }
 
 /* Write | Type, above the notes. */
+/* Sticky inside the scrolling pane, in the paper's colour so ink passes behind it. Clear of
+   the fold button in the pane's corner, which took the taps meant for "Previous page". */
+.notes-bar {
+  position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px;
+  margin: 0 0 6px; padding: 4px 12px 4px 48px; background: var(--paper);
+}
+@media (max-width: 599px) { .notes-bar { padding-left: 12px; } }
+.notes-bar button, .pager-which {
+  min-height: 44px; border: 0; border-radius: 10px; background: none; color: var(--slip-ink); font-family: var(--font-ui); font-size: 0.95rem; font-weight: 600;
+}
+.notes-bar .pager-turn { min-width: 44px; font-size: 1.35rem; }
+.pager-turn:disabled { opacity: 0.3; }
+.pager-which { padding: 0 6px; }
+.notes-bar .pager-add { padding: 0 12px; background: color-mix(in srgb, var(--slip-ink) 8%, transparent); }
+.notes-bar .pager-remove { padding: 0 8px; color: var(--muted); font-weight: 500; }
+/* One rule tall, so writing on a later page sits on its lines too. */
+.pad-page-no { margin: 0; height: var(--line); line-height: var(--line); font-family: var(--font-ui); font-size: 0.82rem; color: var(--muted); }
+.print-page { display: none; }
 .notes-mode { display: flex; justify-content: flex-end; gap: 2px; margin: 0 0 6px; }
 .notes-mode button {
   min-height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: none;
@@ -714,7 +732,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 @media print {
   html, body { background: #fff !important; }
   /* The reference is for the desk, not the printout: it is someone else's text. */
-  .menu-button, .toolbar, .chapter-picker, .verse-panel, .pane-switch, .refs, .alert, .ink-note, .notes-mode, .pen-loose,
+  .menu-button, .toolbar, .chapter-picker, .verse-panel, .pane-switch, .refs, .alert, .ink-note, .notes-mode, .pen-loose, .notes-bar,
   .notes-edge, .notes-fold, .notes-unfold { display: none !important; }
   /* Folded on screen is not folded on paper: "Print my notes" prints them. */
   .workspace.notes-folded .notes-pane { overflow: visible; }
@@ -739,6 +757,8 @@ button:disabled { opacity: 0.35; cursor: default; }
     print-color-adjust: exact; -webkit-print-color-adjust: exact;
   }
   textarea.pad-lines { display: none; }
+  .print-page { display: block; }
+  .notes-col .pad-surface + .pad-surface { break-before: page; }
   .print-text { display: block; white-space: pre-wrap; min-height: 0; }
 
   /* My notes: the passage, then the notes on their rules. */
