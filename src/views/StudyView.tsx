@@ -61,8 +61,6 @@ const pref = {
     }
   },
 };
-/** "write" or "type": how the notes take input on this device. */
-const NOTES_MODE_KEY = 'workshop:notes-mode';
 /** Set once a Pencil has been used here; from then on fingers scroll, not write. */
 const PENCIL_KEY = 'workshop:pencil';
 /** The notepad's size, as the reader left it: width beside the Bible, height below it. */
@@ -165,7 +163,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   const [comparing, setComparing] = useState(false);
   // The verse opened by tapping its number, if any.
   const [opened, setOpened] = useState<number | null>(null);
-  const [notesMode, setNotesMode] = useState<'write' | 'type'>(() => (pref.get(NOTES_MODE_KEY) === 'type' ? 'type' : 'write'));
+  const [notesMode, setNotesMode] = useState<'write' | 'type'>('write');
   const [pencil, setPencil] = useState(() => pref.get(PENCIL_KEY) === '1');
   const phone = useMediaQuery('(max-width: 599px)');
   // Keep in step with the toolbar's own narrow rules in index.css.
@@ -481,10 +479,6 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   // Fingers stop once a Pencil has been used, as Apple Notes does, so a palm resting
   // on the glass leaves no marks.
   const notesPen = { ...pen, mouseDraws: writeNotes || pen.mouseDraws, fingerDraws: writeNotes && !pencil };
-  const chooseNotesMode = (m: 'write' | 'type') => {
-    setNotesMode(m);
-    pref.set(NOTES_MODE_KEY, m);
-  };
 
   return (
     <div
@@ -560,7 +554,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
         <Fit width={NOTES_W} gutter={16} max={1.8} on={!phone}>
           <Notes
             study={study} update={update} pageNo={Math.min(notesPage, notePageCount(study))}
-            setInk={setInk} mode={notesMode} setMode={chooseNotesMode}
+            setInk={setInk} mode={notesMode} setMode={setNotesMode}
             onTyping={showNotes} {...notesPen}
           />
         </Fit>
@@ -1005,17 +999,33 @@ function Notes({ study, update, pageNo, setInk, mode, setMode, onTyping, ...pen 
     }
   };
 
+  // There is no switch between writing and typing (the user: "take out the write/type
+  // options"). A tap asks for the keyboard: a physical one announces itself by typing, but
+  // an on-screen one only comes up for a box already chosen, so without this a phone or an
+  // iPad with no keyboard could never type. Made editable here and not on the next render:
+  // iPad raises its keyboard only for a box that can take text during the tap itself.
+  const openKeyboard = (pressed: Element) => {
+    const box = (pressed.closest('input, textarea') ?? page.current) as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!box) return;
+    box.readOnly = false;
+    setMode('type');
+    box.focus();
+    box.setSelectionRange(box.value.length, box.value.length);
+  };
+
   return (
-    <div className="notes-col">
-      <div className="notes-mode" role="group" aria-label="Notes by">
-        <button type="button" aria-pressed={writing} onClick={() => setMode('write')}>Write</button>
-        <button type="button" aria-pressed={!writing} onClick={() => setMode('type')}>Type</button>
-      </div>
+    <div
+      className="notes-col"
+      onFocus={(e) => e.target.matches('input, textarea') && setMode('type')}
+      // Between the title and the notes is still typing.
+      onBlur={(e) => !(e.relatedTarget instanceof Element && e.currentTarget.contains(e.relatedTarget) && e.relatedTarget.matches('input, textarea')) && setMode('write')}
+    >
       {/* The other pages, for paper only: "Print my notes" means all of them, in order. */}
       {numbers.filter((n) => n < pageNo).map((n) => <PrintedPage key={n} study={study} n={n} />)}
       <InkSurface
         key={pageNo}
-        ink={ink} onChange={setInk(notePageSurface(pageNo))} {...pen} onPen={onPen} className={`pad-surface${writing ? ' writing' : ''}`}
+        ink={ink} onChange={setInk(notePageSurface(pageNo))} {...pen} onPen={onPen} onTap={writing ? openKeyboard : undefined}
+        className={`pad-surface${writing ? ' writing' : ''}`}
         // Room to keep writing below the lowest line written, about ten lines' worth.
         style={inkLow ? { minHeight: inkLow + 320 } : undefined}
       >
@@ -1029,7 +1039,6 @@ function Notes({ study, update, pageNo, setInk, mode, setMode, onTyping, ...pen 
               value={study.title}
               placeholder="Title"
               readOnly={writing}
-              tabIndex={writing ? -1 : undefined}
               onChange={(e) => update(study.id, (s) => ({ ...s, title: e.target.value }))}
               aria-label="Title"
             />
@@ -1040,8 +1049,8 @@ function Notes({ study, update, pageNo, setInk, mode, setMode, onTyping, ...pen 
         )}
         <textarea
           ref={page} className="pad-lines" value={body} onChange={(e) => update(study.id, (s) => withNotePageText(s, pageNo, e.target.value))} aria-label="Notes" rows={18}
-          readOnly={writing} tabIndex={writing ? -1 : undefined}
-          placeholder={writing ? (ink?.strokes.length ? '' : 'Write here with a Pencil, a finger or the mouse…') : 'Type here…'}
+          readOnly={writing}
+          placeholder={writing ? (ink?.strokes.length ? '' : 'Write here, or tap to type…') : 'Type here…'}
         />
         {/* The same writing for print: a text box cannot break across pages, so the
             browser moved it whole to the next sheet and stranded the title. */}
@@ -1049,7 +1058,7 @@ function Notes({ study, update, pageNo, setInk, mode, setMode, onTyping, ...pen 
         {pageNo === 1 && earlier.map((s) => (
           <Fragment key={s}>
             <p className="pad-heading">{OLD_SHEETS[s]}</p>
-            <textarea className="pad-lines short" value={study.notes[s]} onChange={(e) => write(s, e.target.value)} aria-label={OLD_SHEETS[s]} readOnly={writing} tabIndex={writing ? -1 : undefined} />
+            <textarea className="pad-lines short" value={study.notes[s]} onChange={(e) => write(s, e.target.value)} aria-label={OLD_SHEETS[s]} readOnly={writing} />
           </Fragment>
         ))}
       </InkSurface>
