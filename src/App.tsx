@@ -8,6 +8,7 @@ import { useMediaQuery } from './lib/media';
 import { loadLengths } from './lib/text';
 import { AUTO, BUILT_IN, DARK, DEFAULT, LIGHT } from './skins';
 import About from './views/About';
+import Advent from './views/Advent';
 import Contents from './views/Contents';
 import Paper from './views/Paper';
 import Studies from './views/Studies';
@@ -154,6 +155,12 @@ export default function App() {
   }, []);
 
   const studies = useMemo(() => store?.pads ?? [], [store]);
+  // A reading already studied opens that study, its notes with it, rather than a new one.
+  const openReading = (passage: string) => {
+    const found = studies.find((s) => s.passage === passage);
+    if (found) location.hash = href.study(found.id);
+    else add(newStudy(passage, ''));
+  };
   const current = route.view === 'study' ? studies.find((s) => s.id === route.id) : undefined;
   useEffect(() => {
     if (current) remember(LAST_KEY, current.id);
@@ -227,7 +234,9 @@ export default function App() {
           <Paper skins={skins} current={chosen ? chosen.id : AUTO} choose={chooseSkin} custom={customSkins} saveCustom={saveCustom} />
         ) : route.view === 'about' ? (
           <About />
-        ) : !store ? null : route.view === 'study' ? (
+        ) : !store ? null : route.view === 'advent' ? (
+          <Advent open={openReading} />
+        ) : route.view === 'study' ? (
           <StudyView
             study={current} lengths={lengths} update={update} bible={store.bible} updateBible={updateBible}
             openMenu={() => setMenu(true)} pens={pensOf(skin)} penArt={skin.pen}
@@ -340,6 +349,7 @@ function Menu({ current, store, restore, lengths, redLetter, setRedLetter, close
         <p className="menu-brand">Sermon Workshop</p>
         <a href={href.new()}>Begin a new study</a>
         <a href={href.studies()}>Your studies</a>
+        <a href={href.advent()}>Advent readings</a>
         {current && (
           <>
             <hr />

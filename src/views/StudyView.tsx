@@ -218,6 +218,37 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
     };
   }, [passage?.book]); // eslint-disable-line react-hooks/exhaustive-deps -- the book is all that matters
 
+  // A study of a few verses opens at them. At the chapter's top, the first thing on screen
+  // was the dimmed verses around the reading (Luke 2:41-52 opened 40 verses early), with
+  // nothing to say the reading was further down. Once per study, so it never fights the
+  // reader's own scrolling.
+  const placed = useRef<string | null>(null);
+  const textReady = book.state === 'ready' && layout !== null;
+  useEffect(() => {
+    if (!study || !passage || !textReady || chapter !== chapterOf(passage.start) || placed.current === study.id) return;
+    placed.current = study.id;
+    const verse = verseOf(passage.start);
+    if (verse === 1) return;
+    // Tried until it holds, for up to two seconds: until Fit has measured the text the pane
+    // is too short to scroll that far, and how long that takes varies (a fixed two frames
+    // missed on an iPad size, leaving the reading off screen). Timers, not frames, as frames
+    // can stall. Two checks in place in a row, so the reader's own scrolling isn't fought.
+    let tries = 0;
+    let held = 0;
+    const timer = setInterval(() => {
+      const pane = biblePane.current;
+      const at = pane?.querySelector(`[data-verse="${verse}"]`);
+      if (!pane || !at) return;
+      const off = at.getBoundingClientRect().top - pane.getBoundingClientRect().top - 24;
+      if (Math.abs(off) > 2) {
+        held = 0;
+        pane.scrollTo({ top: pane.scrollTop + off });
+      } else held++;
+      if (held >= 2 || ++tries >= 40) clearInterval(timer);
+    }, 50);
+    return () => clearInterval(timer);
+  }, [study?.id, chapter, textReady]); // eslint-disable-line react-hooks/exhaustive-deps -- the passage follows the study
+
   // A new chapter starts at its top, as turning a page does, and closes an opened verse.
   useEffect(() => {
     biblePane.current?.scrollTo({ top: 0 });
