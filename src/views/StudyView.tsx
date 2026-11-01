@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { BY_CODE } from '../lib/books';
+import { BY_CODE, shortName } from '../lib/books';
 import { inkBottom, TOOL_STYLE } from '../lib/ink';
 import { coversExactly, LAYOUT, loadLayout, spoken, type ChapterLayout, type Part } from '../lib/layout';
 import { useMediaQuery } from '../lib/media';
@@ -15,6 +15,7 @@ import { drag, onScreen } from './drag';
 import { FountainPen, MultiColourPen, PEN_PHOTO } from './PenArt';
 import InkSurface from './Ink';
 import { ReferencePicker, ReferenceText } from './Reference';
+import { testament } from '../lib/xref';
 import { useScrollLock } from './scrollLock';
 import VersePanel from './VersePanel';
 
@@ -135,6 +136,14 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   const [layout, setLayout] = useState<ChapterLayout[] | 'failed' | null>(null);
   // On a laptop the mouse starts as a pointer; on an iPad the Pencil starts as a pen.
   const [choice, setChoice] = useState<Choice>(() => (fine() ? 'read' : 'pen'));
+  // Looking up: a tap anywhere in a verse opens it (its Greek or Hebrew first), by finger,
+  // mouse or Pencil. Asked for older pastors: a verse number is a small target, and a
+  // Pencil tap on one writes. Choosing a pen ends it, so the pen does what it says.
+  const [looking, setLooking] = useState(false);
+  const choose = (c: Choice) => {
+    setChoice(c);
+    setLooking(false);
+  };
   // Which pane a phone shows: "bible", "notes" or a reference's id.
   const [pane, setPane] = useState('bible');
   const [references, setReferences] = useState<Reference[]>(savedReferences);
@@ -148,6 +157,8 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   const [notesMode, setNotesMode] = useState<'write' | 'type'>(() => (pref.get(NOTES_MODE_KEY) === 'type' ? 'type' : 'write'));
   const [pencil, setPencil] = useState(() => pref.get(PENCIL_KEY) === '1');
   const phone = useMediaQuery('(max-width: 599px)');
+  // Keep in step with the toolbar's own narrow rules in index.css.
+  const narrowBar = useMediaQuery('(max-width: 1099px)');
   const upright = useMediaQuery('(max-width: 999px)') && !phone;
   const [notesWidth, setNotesWidth] = useState(() => sizePref(NOTES_WIDTH_KEY));
   const [notesHeight, setNotesHeight] = useState(() => sizePref(NOTES_HEIGHT_KEY));
@@ -258,6 +269,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
     });
 
   const name = BY_CODE.get(passage.book)!.name;
+  const language = testament(passage.book) === 'old' ? 'Hebrew' : 'Greek';
   const chapters = lengths![passage.book].length;
   const ch = chapter ?? chapterOf(passage.start);
   const go = (c: number) => {
@@ -346,7 +358,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
     const rad = (a0 * Math.PI) / 180;
     // How far along the pen the press is, from its middle (0) to either end (1).
     const along = ((e.clientX - c.x) * Math.cos(rad) + (e.clientY - c.y) * Math.sin(rad)) / (w / 2);
-    const tap = penArt === 'fountain' ? () => setChoice('pen') : undefined;
+    const tap = penArt === 'fountain' ? () => choose('pen') : undefined;
     if (Math.abs(along) < 0.55) return carryPenFrom(e, w, h, tap);
     const grip = (Math.atan2(e.clientY - c.y, e.clientX - c.x) * 180) / Math.PI - a0;
     const turned = (ev: PointerEvent) => ({ ...penSpot, a: Math.round((Math.atan2(ev.clientY - c.y, ev.clientX - c.x) * 180) / Math.PI - grip) });
@@ -429,11 +441,18 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
       )}
 
       <section ref={biblePane} className={`pane bible-pane${front === 'bible' ? ' front' : ''}`} role="region" aria-label="Bible">
+        {/* Sticky and of no height, so the words (and the ink on them) don't move. Before the
+            text: placed after it, it only stuck once the chapter's end was reached. */}
+        {looking && opened === null && (
+          <div className="look-hint-at">
+            <p className="look-hint" role="status">Tap a verse to see it in the {language}.</p>
+          </div>
+        )}
         <Fit width={BIBLE_W} gutter={20} on={!phone} onScale={setBibleScale}>
           <BibleText
             key={ch} passage={passage} chapter={ch} name={name} book={book} marks={mine?.marks ?? NO_MARKS} onMark={mark}
             layout={layout === 'failed' ? 'failed' : layout?.[ch - 1] ?? null}
-            onVerse={(v) => { setOpened(v); setComparing(false); setJump(false); }}
+            onVerse={(v) => { setOpened(v); setComparing(false); setJump(false); }} looking={looking}
             ink={inkOf(`bible:${ch}`)} setInk={setInk(`bible:${ch}`)} {...pen}
           />
         </Fit>
@@ -545,7 +564,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
         </button>
         <span className="tb-sep" aria-hidden="true" />
         <button type="button" className="tb-icon" onClick={() => go(ch - 1)} disabled={ch <= 1} aria-label="Previous chapter">‹</button>
-        <button type="button" className="tb-place" onClick={() => { setJump((j) => !j); setComparing(false); }} aria-expanded={jump}>{name} {ch}</button>
+        <button type="button" className="tb-place" onClick={() => { setJump((j) => !j); setComparing(false); }} aria-expanded={jump} aria-label={`${name} ${ch}`}>{narrowBar ? shortName(passage.book) : name} {ch}</button>
         <button type="button" className="tb-icon" onClick={() => go(ch + 1)} disabled={ch >= chapters} aria-label="Next chapter">›</button>
         <button
           type="button" className="tb-icon tb-compare" onClick={() => { setComparing((c) => !c); setJump(false); }} aria-expanded={comparing}
@@ -553,6 +572,14 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
         >
           {/* Two columns side by side. */}
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="7" height="14" rx="1.5" /><rect x="13.5" y="5" width="7" height="14" rx="1.5" /></svg>
+        </button>
+        <button
+          type="button" className="tb-look" aria-pressed={looking} onClick={() => setLooking((l) => !l)}
+          aria-label={language} title={`Tap a verse to see it in the ${language}`}
+        >
+          {/* The word where there is room; on narrower screens, its first letters. */}
+          <span className="tb-look-letters" aria-hidden="true">{language === 'Greek' ? 'αβ' : 'אב'}</span>
+          <span className="tb-look-word" aria-hidden="true">{language}</span>
         </button>
         {references.length > 0 && !phone && (
           <button
@@ -577,7 +604,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
         )}
         <span className="tb-sep tb-pens-sep" aria-hidden="true" />
         <span className="tb-pens" role="group" aria-label="Pens">
-          <button type="button" className="tb-icon tb-read" aria-pressed={choice === 'read'} onClick={() => setChoice('read')} aria-label="Read" title="Read: click words to mark them">
+          <button type="button" className="tb-icon tb-read" aria-pressed={choice === 'read'} onClick={() => choose('read')} aria-label="Read" title="Read: click words to mark them">
             {/* A pointer arrow; a bare triangle read as a "play" button. */}
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3l14 9-6.2 1.4 3.6 6.6-2.7 1.4-3.6-6.6L5 19z" /></svg>
           </button>
@@ -585,19 +612,19 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
               only the other tools are left as dots beside it. */}
           {penArt === 'multi-colour' && (
             <MultiColourPen
-              colours={pens.filter((t) => t !== 'highlighter')} choice={choice} choose={setChoice}
+              colours={pens.filter((t) => t !== 'highlighter')} choice={choice} choose={choose}
               out={penOut} pickUp={(e) => carryPen(e)} putBack={putPenBack}
             />
           )}
           {penArt === 'fountain' && (
-            <FountainPen pressed={choice === 'pen'} choose={() => setChoice('pen')} out={penOut} pickUp={(e) => carryPen(e)} putBack={putPenBack} />
+            <FountainPen pressed={choice === 'pen'} choose={() => choose('pen')} out={penOut} pickUp={(e) => carryPen(e)} putBack={putPenBack} />
           )}
           {pens.filter((t) => !drawn.includes(t)).map((t) => (
-            <button key={t} type="button" className="tb-icon" aria-pressed={choice === t} onClick={() => setChoice(t)} aria-label={TOOL_STYLE[t].label} title={TOOL_STYLE[t].label}>
+            <button key={t} type="button" className="tb-icon" aria-pressed={choice === t} onClick={() => choose(t)} aria-label={TOOL_STYLE[t].label} title={TOOL_STYLE[t].label}>
               <span className={`nib nib-${t}`} aria-hidden="true" />
             </button>
           ))}
-          <button type="button" className="tb-icon" aria-pressed={choice === 'eraser'} onClick={() => setChoice('eraser')} aria-label="Eraser" title="Eraser">
+          <button type="button" className="tb-icon" aria-pressed={choice === 'eraser'} onClick={() => choose('eraser')} aria-label="Eraser" title="Eraser">
             <span className="nib nib-eraser" aria-hidden="true" />
           </button>
           <button type="button" className="tb-icon" onClick={undo} disabled={!history.length} aria-label="Undo" title="Undo">↶</button>
@@ -607,7 +634,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   );
 }
 
-function BibleText({ passage, chapter, name, book, layout, marks, onMark, onVerse, ink, setInk, tool, mouseDraws, onPen }: {
+function BibleText({ passage, chapter, name, book, layout, marks, onMark, onVerse, looking, ink, setInk, tool, mouseDraws, onPen }: {
   passage: Passage;
   chapter: number;
   name: string;
@@ -618,6 +645,8 @@ function BibleText({ passage, chapter, name, book, layout, marks, onMark, onVers
   onMark: (k: VerseKey, i: number) => void;
   /** Opens a verse: its cross-references and commentary. */
   onVerse: (verse: number) => void;
+  /** A tap on a word opens its verse, rather than marking the word. */
+  looking: boolean;
   ink: Ink | undefined;
   setInk: (ink: Ink) => void;
   tool: Tool | 'eraser';
@@ -647,7 +676,7 @@ function BibleText({ passage, chapter, name, book, layout, marks, onMark, onVers
       <button
         type="button"
         className={`word${m ? ` mark-${m}` : ''}${wj ? ' wj' : ''}`}
-        onClick={() => onMark(k, at)}
+        onClick={() => (looking ? onVerse(verseOf(k)) : onMark(k, at))}
         aria-pressed={!!m}
         aria-label={m ? `${tok}, ${MARK_WORD[m]}` : undefined}
       >
@@ -684,7 +713,7 @@ function BibleText({ passage, chapter, name, book, layout, marks, onMark, onVers
   return (
     <div className="bible-col">
       <p className="book-name">{name}</p>
-      <InkSurface ink={ink} onChange={write} tool={tool} mouseDraws={mouseDraws} onPen={onPen} className="bible-text">
+      <InkSurface ink={ink} onChange={write} tool={tool} mouseDraws={mouseDraws} writes={!looking} onPen={onPen} className="bible-text">
         {book.state === 'loading' || (layout === null && !oldInk) ? (
           <p className="quiet">Opening {name}…</p>
         ) : book.state === 'failed' ? (

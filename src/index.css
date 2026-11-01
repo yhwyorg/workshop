@@ -301,7 +301,8 @@ button:disabled { opacity: 0.35; cursor: default; }
    tall: tappable through its hit area, but "not visible" to anything that checks. Its
    own line-height moves no line of the chapter (measured), so ink is unaffected. */
 .vn-open { all: unset; line-height: 1; text-indent: 0; position: relative; cursor: pointer; border-radius: 4px; }
-.vn-open::after { content: ''; position: absolute; inset: -12px -7px; }
+/* At least 24px each way to tap (WCAG 2.5.8), for older hands; it was 20 wide. */
+.vn-open::after { content: ''; position: absolute; inset: -12px -9px; }
 .vn-open:hover, .drop:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .vn-open:focus-visible, .drop:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -451,7 +452,11 @@ button:disabled { opacity: 0.35; cursor: default; }
 
 .toolbar {
   position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 15;
-  display: flex; align-items: center; gap: 2px; padding: 6px; border-radius: 18px;
+  /* Wraps rather than leaving the screen, whatever the book, the fonts or the buttons
+     showing; an off-screen Undo looks like no Undo. Max-content, or left: 50% would give
+     it half the screen to wrap in. */
+  display: flex; flex-wrap: wrap; justify-content: center; width: max-content; max-width: calc(100vw - 16px);
+  align-items: center; gap: 2px; padding: 6px; border-radius: 18px;
   background: var(--glass); border: 1px solid var(--hairline); box-shadow: var(--float-shadow);
   -webkit-backdrop-filter: blur(20px) saturate(1.5); backdrop-filter: blur(20px) saturate(1.5);
 }
@@ -464,6 +469,29 @@ button:disabled { opacity: 0.35; cursor: default; }
 .tb-icon[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 12%, transparent); }
 .tb-sep { width: 1px; height: 24px; margin: 0 6px; background: var(--hairline); }
 .tb-pens { display: flex; align-items: center; gap: 2px; }
+/* Looking up the Greek or Hebrew: a word, not an icon, so it says what it does. */
+.tb-look {
+  all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px;
+  border-radius: 12px; cursor: pointer; font-family: var(--font-ui); font-size: 16px; font-weight: 600; color: var(--slip-ink);
+}
+.tb-look:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); }
+/* On, it stands out more than a pen does: the page behaves differently while it is. */
+.tb-look[aria-pressed='true'] { background: var(--accent); color: var(--slip); }
+.tb-look:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tb-look-letters { font-family: var(--font-scripture); font-size: 18px; }
+@media (max-width: 1099px) {
+  /* One row for an ordinary chapter, measured on an upright iPad and a phone. The room
+     comes from the dividers and the padding: the buttons stay 44px, for older hands. */
+  .tb-look { padding: 0 8px; }
+  .tb-look-word { display: none; }
+  .tb-sep { display: none; }
+  .tb-place { padding: 0 8px; }
+}
+.look-hint-at { position: sticky; top: 0; height: 0; display: flex; align-items: flex-start; justify-content: center; z-index: 5; pointer-events: none; }
+.look-hint {
+  margin: 12px 0 0; padding: 8px 16px; border-radius: 999px; background: var(--accent); color: var(--slip);
+  font-family: var(--font-ui); font-size: 17px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18); white-space: nowrap;
+}
 .nib { display: inline-block; width: 16px; height: 16px; border-radius: 50%; flex: none; }
 .tb-read svg { width: 18px; height: 18px; fill: var(--slip-ink); }
 .nib-pen { background: var(--ink-notes); }
@@ -526,7 +554,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 .fountain[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 9%, transparent); }
 /* Narrower screens: a smaller pen, so the toolbar fits an upright iPad. With the grip
    added it ran 841px wide on an 834px screen (caught in CI), even in its home position. */
-@media (max-width: 999px) { .toolbar .pen-photo { width: 160px; } .pen-art.fountain { width: 160px; } }
+@media (max-width: 1099px) { .toolbar .pen-photo { width: 144px; } .pen-art.fountain { width: 144px; } }
 
 /* An Apple Pencil always writes and a finger never does, so a touch device has no
    use for "Read"; it exists for the mouse. */

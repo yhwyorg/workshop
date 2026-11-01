@@ -27,6 +27,34 @@ test.describe('the toolbar', () => {
     expect(b.x + b.width).toBeLessThanOrEqual(v.width);
   });
 
+  // The Greek button made it 835px on CI's 834 (821 on Windows: fonts differ). Measuring
+  // then found long names already ran off an upright iPad: 1 Thessalonians was 851px.
+  test('stays on one row for an ordinary chapter, keeping its buttons full size', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    expect((await box(page, '.toolbar')).height).toBeLessThan(70);
+    expect((await box(page, '.tb-place')).height).toBeGreaterThanOrEqual(44);
+  });
+
+  for (const [book, chapter] of [['1 Thessalonians', 5], ['Deuteronomy', 34], ['Jeremiah', 52]] as const) {
+    test(`stays on screen in ${book}`, async ({ page }) => {
+      await beginStudy(page, book, chapter);
+      const b = await box(page, '.toolbar');
+      expect(b.x).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+      // However the name is shortened to fit, it is still the whole name to a screen reader.
+      await expect(page.getByRole('button', { name: `${book} ${chapter}`, exact: true })).toBeVisible();
+    });
+  }
+
+  test('wraps rather than leaving the screen, on the smallest phone', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await beginStudy(page, '1 Thessalonians', 5);
+    const b = await box(page, '.toolbar');
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(320);
+    await expect(page.getByRole('button', { name: 'Greek', exact: true })).toBeInViewport({ ratio: 1 });
+  });
+
   test('drags by its grip to anywhere, stays there, and a double-click brings it home', async ({ page }) => {
     await beginStudy(page, 'John', 15);
     const home = await box(page, '.toolbar');

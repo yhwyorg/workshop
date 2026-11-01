@@ -113,3 +113,81 @@ test.describe('opening a verse', () => {
     await expect(panel(page, 'John 15:5')).toHaveCount(0);
   });
 });
+
+test.describe('the Greek and Hebrew, without aiming at a verse number', () => {
+  // The user: "more accessibility for the translation button. These are older pastors."
+  // A verse number is a small target, and a Pencil tap on one writes; so a button says
+  // what it does, and then a tap anywhere in a verse opens it.
+  const word = (page: Page, text: RegExp) => page.locator('.word').filter({ hasText: text }).first();
+
+  test('a button named for the language turns it on; then a tap on any word opens its verse', async ({ page }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'John', 15);
+    const greek = page.getByRole('button', { name: 'Greek', exact: true });
+    await greek.click();
+    await expect(greek).toHaveAttribute('aria-pressed', 'true');
+    // On screen, not just on the page: it once sat unseen at the chapter's end.
+    await expect(page.getByText('Tap a verse to see it in the Greek')).toBeInViewport();
+    await word(page, /^branches\.$/).click();
+    await expect(panel(page, 'John 15:5').getByRole('region', { name: 'In the Greek' })).toBeVisible();
+    // Looking, not marking.
+    expect((await savedBible(page)).marks).toEqual({});
+  });
+
+  test('the Old Testament says Hebrew', async ({ page }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'Psalms', 23);
+    await page.getByRole('button', { name: 'Hebrew', exact: true }).click();
+    await word(page, /^shepherd;?$/).click();
+    await expect(panel(page, 'Psalms 23:1').getByRole('region', { name: 'In the Hebrew' })).toBeVisible();
+  });
+
+  test('a Pencil tap looks a verse up too, and writes nothing', async ({ page }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'John', 15);
+    await page.getByRole('button', { name: 'Greek', exact: true }).click();
+    const w = (await word(page, /^branches\.$/).boundingBox())!;
+    const s = (await page.locator('.bible-text').boundingBox())!;
+    const at: [number, number] = [w.x - s.x + w.width / 2, w.y - s.y + w.height / 2];
+    await draw(page, '.bible-text', 'pen', at, [at[0] + 1, at[1] + 1]);
+    await word(page, /^branches\.$/).dispatchEvent('click');
+    await expect(panel(page, 'John 15:5')).toBeVisible();
+    await page.waitForTimeout(400);
+    expect((await savedBible(page)).ink['15']).toBeUndefined();
+  });
+
+  test('pressed again, a tap marks a word as before', async ({ page }) => {
+    await recordedApi(page);
+    await beginStudy(page, 'John', 15);
+    const greek = page.getByRole('button', { name: 'Greek', exact: true });
+    await greek.click();
+    await greek.click();
+    await expect(greek).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByText('Tap a verse to see it in the Greek')).toHaveCount(0);
+    await word(page, /^vine,$/).click();
+    await expect(word(page, /^vine,$/)).toHaveAttribute('aria-pressed', 'true');
+    await expect(panel(page, 'John 15:1')).toHaveCount(0);
+  });
+
+  test('choosing a pen ends looking up', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'a phone has no pens');
+    await recordedApi(page);
+    await beginStudy(page, 'John', 15);
+    await page.getByRole('button', { name: 'Greek', exact: true }).click();
+    await page.getByRole('button', { name: 'Eraser', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Greek', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('a verse number can be tapped anywhere within 12 px of its middle', async ({ page }) => {
+    // 24 by 24 px, the smallest target WCAG 2.2 allows (2.5.8). It was 20 wide.
+    await beginStudy(page, 'John', 15);
+    const n = page.getByRole('button', { name: 'Verse 5', exact: true });
+    const b = (await n.boundingBox())!;
+    const [cx, cy] = [b.x + b.width / 2, b.y + b.height / 2];
+    const hits = await page.evaluate(
+      ([cx, cy]) => [[-11, 0], [11, 0], [0, -11], [0, 11]].map(([dx, dy]) => document.elementFromPoint(cx + dx, cy + dy)?.getAttribute('aria-label')),
+      [cx, cy],
+    );
+    expect(hits).toEqual(['Verse 5', 'Verse 5', 'Verse 5', 'Verse 5']);
+  });
+});
