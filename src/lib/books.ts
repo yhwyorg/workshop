@@ -79,6 +79,14 @@ export const BOOKS: Book[] = [
 
 export const BY_CODE = new Map(BOOKS.map((x) => [x.code, x]));
 
+/** The usual abbreviations of names too long for the toolbar on a narrow screen. */
+const SHORT: Record<string, string> = {
+  LEV: 'Lev', DEU: 'Deut', '1CH': '1 Chr', '2CH': '2 Chr', ECC: 'Eccl', SOL: 'Song', LAM: 'Lam', ZEP: 'Zeph', ZEC: 'Zech',
+  '1CO': '1 Cor', '2CO': '2 Cor', GAL: 'Gal', EPH: 'Eph', PHI: 'Phil', COL: 'Col', '1TH': '1 Thess', '2TH': '2 Thess',
+  '1TI': '1 Tim', '2TI': '2 Tim', REV: 'Rev',
+};
+export const shortName = (code: string) => SHORT[code] ?? BY_CODE.get(code)!.name;
+
 /** Lowercase, with spaces, dots and "st/nd/rd" ordinals removed: "1st Cor." -> "1cor". */
 export const fold = (s: string) => s.toLowerCase().replace(/^([123])(st|nd|rd)/, '$1').replace(/[.\s]/g, '');
 

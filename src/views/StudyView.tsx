@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { BY_CODE } from '../lib/books';
+import { BY_CODE, shortName } from '../lib/books';
 import { inkBottom, TOOL_STYLE } from '../lib/ink';
 import { coversExactly, LAYOUT, loadLayout, spoken, type ChapterLayout, type Part } from '../lib/layout';
 import { useMediaQuery } from '../lib/media';
@@ -157,6 +157,8 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   const [notesMode, setNotesMode] = useState<'write' | 'type'>(() => (pref.get(NOTES_MODE_KEY) === 'type' ? 'type' : 'write'));
   const [pencil, setPencil] = useState(() => pref.get(PENCIL_KEY) === '1');
   const phone = useMediaQuery('(max-width: 599px)');
+  // Keep in step with the toolbar's own narrow rules in index.css.
+  const narrowBar = useMediaQuery('(max-width: 1099px)');
   const upright = useMediaQuery('(max-width: 999px)') && !phone;
   const [notesWidth, setNotesWidth] = useState(() => sizePref(NOTES_WIDTH_KEY));
   const [notesHeight, setNotesHeight] = useState(() => sizePref(NOTES_HEIGHT_KEY));
@@ -562,7 +564,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
         </button>
         <span className="tb-sep" aria-hidden="true" />
         <button type="button" className="tb-icon" onClick={() => go(ch - 1)} disabled={ch <= 1} aria-label="Previous chapter">‹</button>
-        <button type="button" className="tb-place" onClick={() => { setJump((j) => !j); setComparing(false); }} aria-expanded={jump}>{name} {ch}</button>
+        <button type="button" className="tb-place" onClick={() => { setJump((j) => !j); setComparing(false); }} aria-expanded={jump} aria-label={`${name} ${ch}`}>{narrowBar ? shortName(passage.book) : name} {ch}</button>
         <button type="button" className="tb-icon" onClick={() => go(ch + 1)} disabled={ch >= chapters} aria-label="Next chapter">›</button>
         <button
           type="button" className="tb-icon tb-compare" onClick={() => { setComparing((c) => !c); setJump(false); }} aria-expanded={comparing}
@@ -575,7 +577,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
           type="button" className="tb-look" aria-pressed={looking} onClick={() => setLooking((l) => !l)}
           aria-label={language} title={`Tap a verse to see it in the ${language}`}
         >
-          {/* The word where there is room; on an upright iPad or a phone, its first letters. */}
+          {/* The word where there is room; on narrower screens, its first letters. */}
           <span className="tb-look-letters" aria-hidden="true">{language === 'Greek' ? 'αβ' : 'אב'}</span>
           <span className="tb-look-word" aria-hidden="true">{language}</span>
         </button>
