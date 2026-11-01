@@ -81,7 +81,8 @@ test.describe('Advent', () => {
       await expect(page).toHaveURL(/#\/study\//);
       await expect(page.locator(`.bible-text [data-verse="${firstVerse(reading)}"]`)).toBeInViewport();
       await expect(page.locator('.in-study').first()).toBeVisible();
-      expect((await savedStudies(page).then((s) => s.map((x: { passage: string }) => x.passage)))).toEqual([reading]);
+      // Polled: a study is saved 300ms after it begins, and the verse can be on screen sooner.
+      await expect.poll(async () => (await savedStudies(page)).map((x: { passage: string }) => x.passage)).toEqual([reading]);
     });
   }
 
