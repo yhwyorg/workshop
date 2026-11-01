@@ -17,12 +17,14 @@ export type PenTool = Tool | 'eraser';
  * On iPad the Pencil arrives as a touch; its touchstart is cancelled so it does not
  * also scroll the page, focus the notes (raising the keyboard), or start Scribble.
  */
-export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraws = false, onPen, className, style, children }: {
+export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraws = false, writes = true, onPen, className, style, children }: {
   ink: Ink | undefined;
   onChange: (ink: Ink) => void;
   tool: PenTool;
   mouseDraws: boolean;
   fingerDraws?: boolean;
+  /** False while nothing writes here at all, not even the Pencil (looking a verse up). */
+  writes?: boolean;
   /** Told when a Pencil touches, so fingers can stop writing (a palm on the glass). */
   onPen?: () => void;
   className?: string;
@@ -44,6 +46,8 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraw
   const panning = useRef(false);
   const fingerWrites = useRef(fingerDraws);
   fingerWrites.current = fingerDraws;
+  const writing = useRef(writes);
+  writing.current = writes;
 
   useEffect(() => {
     const el = box.current!;
@@ -54,6 +58,8 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraw
     // Non-passive, so the stylus's default (scroll, focus, Scribble) can be cancelled;
     // and a writing finger's too, or it would also scroll and tap what is under it.
     const stylus = (e: TouchEvent) => {
+      // Not writing, the Pencil's tap must stay a tap; cancelling it here loses the click.
+      if (!writing.current) return;
       if (fingerWrites.current || [...e.touches].some((t) => (t as Touch & { touchType?: string }).touchType === 'stylus')) e.preventDefault();
     };
     el.addEventListener('touchstart', stylus, { passive: false });
@@ -80,6 +86,7 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraw
     const pen = e.pointerType === 'pen';
     penGesture.current = false;
     if (pen) onPen?.();
+    if (!writes) return;
     if (e.pointerType === 'touch' && fingerDraws) {
       fingers.current.set(e.pointerId, e.clientY);
       if (fingers.current.size > 1) {
