@@ -17,7 +17,13 @@ export type PenTool = Tool | 'eraser';
  * On iPad the Pencil arrives as a touch; its touchstart is cancelled so it does not
  * also scroll the page, focus the notes (raising the keyboard), or start Scribble.
  */
-export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraws = false, writes = true, onPen, className, style, children }: {
+// A press this short and this still is a tap, not a very small stroke.
+const TAP_MS = 500;
+const TAP_PX = 8;
+// Soon after writing, a touch is the dot on an "i", or a hand coming to rest.
+const SETTLING_MS = 1500;
+
+export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraws = false, writes = true, onPen, onTap, className, style, children }: {
   ink: Ink | undefined;
   onChange: (ink: Ink) => void;
   tool: PenTool;
@@ -27,6 +33,8 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraw
   writes?: boolean;
   /** Told when a Pencil touches, so fingers can stop writing (a palm on the glass). */
   onPen?: () => void;
+  /** A finger or the mouse tapped here, where it pressed. Never the Pencil, which only writes. */
+  onTap?: (pressed: Element) => void;
   className?: string;
   style?: CSSProperties;
   children: ReactNode;
@@ -48,6 +56,11 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraw
   fingerWrites.current = fingerDraws;
   const writing = useRef(writes);
   writing.current = writes;
+  const press = useRef<{ id: number; x: number; y: number; t: number; on: Element; touch: boolean } | null>(null);
+  const lastStroke = useRef(0);
+  // A finger's tap, waiting for its touchend: iPad only raises the keyboard for a box
+  // focused during that, and pointerup comes just before it.
+  const tapped = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const el = box.current!;
@@ -62,12 +75,15 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraw
       if (!writing.current) return;
       if (fingerWrites.current || [...e.touches].some((t) => (t as Touch & { touchType?: string }).touchType === 'stylus')) e.preventDefault();
     };
+    const lifted = () => tapped.current?.();
     el.addEventListener('touchstart', stylus, { passive: false });
     el.addEventListener('touchmove', stylus, { passive: false });
+    el.addEventListener('touchend', lifted);
     return () => {
       ro.disconnect();
       el.removeEventListener('touchstart', stylus);
       el.removeEventListener('touchmove', stylus);
+      el.removeEventListener('touchend', lifted);
     };
   }, []);
 
@@ -85,6 +101,9 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraw
   const down = (e: React.PointerEvent) => {
     const pen = e.pointerType === 'pen';
     penGesture.current = false;
+    press.current = onTap && !pen && tool !== 'eraser' && e.button === 0
+      ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now(), on: e.target as Element, touch: e.pointerType === 'touch' }
+      : null;
     if (pen) onPen?.();
     if (!writes) return;
     if (e.pointerType === 'touch' && fingerDraws) {
@@ -95,6 +114,7 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraw
         current.current = null;
         setLive(null);
         panning.current = true;
+        press.current = null;
         return;
       }
     } else if (!pen && !(e.pointerType === 'mouse' && mouseDraws && e.button === 0)) return;
@@ -156,10 +176,31 @@ export default function InkSurface({ ink, onChange, tool, mouseDraws, fingerDraw
       if (!fingers.current.size) panning.current = false;
       return;
     }
+    const p = press.current;
+    press.current = null;
+    const now = Date.now();
+    if (
+      p && p.id === e.pointerId && e.type === 'pointerup' && now - p.t < TAP_MS && Math.hypot(e.clientX - p.x, e.clientY - p.y) < TAP_PX &&
+      // A mouse is never a palm, and a click means what it says.
+      (!p.touch || now - lastStroke.current > SETTLING_MS)
+    ) {
+      current.current = null;
+      setLive(null);
+      const tap = () => {
+        tapped.current = null;
+        onTap?.(p.on);
+      };
+      if (!p.touch) return tap();
+      tapped.current = tap;
+      // Should no touchend follow, the tap still counts, though iPad may keep its keyboard down.
+      setTimeout(() => tapped.current === tap && tap(), 100);
+      return;
+    }
     const c = current.current;
     if (!c) return;
     current.current = null;
     setLive(null);
+    lastStroke.current = now;
     if (tool !== 'eraser') onChange({ width: ink?.width ?? width, strokes: [...c.strokes, c.stroke] });
   };
 

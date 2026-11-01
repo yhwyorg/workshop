@@ -113,7 +113,6 @@ test.describe('pages of notes', () => {
     await beginStudy(page, 'John', 15);
     await typeNotes(page, 'One.');
     await add(page).click();
-    await page.getByRole('button', { name: 'Write', exact: true }).click();
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.type('Two');
     await expect(notes(page)).toHaveValue('Two');

@@ -99,9 +99,14 @@ export async function twoFingerDrag(page: Page, selector: string, at: [number, n
  */
 export async function typeNotes(page: Page, text: string, label = 'Notes') {
   await show(page, 'Notes');
-  const type = page.getByRole('button', { name: 'Type', exact: true });
-  if ((await type.getAttribute('aria-pressed')) !== 'true') await type.click();
+  // A tap near the box's top: its middle can be under the toolbar on a short pane.
+  await page.getByLabel(label, { exact: true }).click({ position: { x: 40, y: 10 } });
   await page.getByLabel(label, { exact: true }).fill(text);
+}
+
+/** Tapping away from the notes, which leaves them ready for writing again. */
+export async function stopTyping(page: Page) {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 }
 
 /** The saved studies, read straight from storage: proves a change was kept, not just drawn. */

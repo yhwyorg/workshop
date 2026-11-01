@@ -399,7 +399,8 @@ button:disabled { opacity: 0.35; cursor: default; }
   /* From the skin: solid rules, or a notebook's dotted ones (see rules() in skin.ts). */
   background-image: var(--pad-rules, repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px) var(--line)));
 }
-.pad-label { display: none; }
+/* Not a target: over the title box, a tap on "TITLE" started typing in the notes instead. */
+.pad-label { display: none; pointer-events: none; }
 .pad-sep, .pad-no, .pad-date { display: inline; }
 .pad-title {
   display: block; width: 100%; height: calc(var(--line) * 2); padding: calc(var(--line) * 0.55) 0 0; border: 0; background: transparent;
@@ -473,12 +474,6 @@ button:disabled { opacity: 0.35; cursor: default; }
 /* One rule tall, so writing on a later page sits on its lines too. */
 .pad-page-no { margin: 0; height: var(--line); line-height: var(--line); font-family: var(--font-ui); font-size: 0.82rem; color: var(--muted); }
 .print-page { display: none; }
-.notes-mode { display: flex; justify-content: flex-end; gap: 2px; margin: 0 0 6px; }
-.notes-mode button {
-  min-height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: none;
-  font-size: 0.86rem; font-weight: 600; color: var(--muted);
-}
-.notes-mode button[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 10%, transparent); color: var(--slip-ink); }
 .ink-note { position: relative; margin: 6px 0 0; font-size: 0.8rem; color: var(--accent); }
 
 /* ---------- The toolbar ---------- */
@@ -732,7 +727,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 @media print {
   html, body { background: #fff !important; }
   /* The reference is for the desk, not the printout: it is someone else's text. */
-  .menu-button, .toolbar, .chapter-picker, .verse-panel, .pane-switch, .refs, .alert, .ink-note, .notes-mode, .pen-loose, .notes-bar,
+  .menu-button, .toolbar, .chapter-picker, .verse-panel, .pane-switch, .refs, .alert, .ink-note, .pen-loose, .notes-bar,
   .notes-edge, .notes-fold, .notes-unfold { display: none !important; }
   /* Folded on screen is not folded on paper: "Print my notes" prints them. */
   .workspace.notes-folded .notes-pane { overflow: visible; }

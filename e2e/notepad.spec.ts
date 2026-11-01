@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { beginStudy, draw, expect, test, typeNotes } from './fixtures';
+import { beginStudy, draw, expect, stopTyping, test, typeNotes } from './fixtures';
 
 /**
  * The notepad can be made bigger, smaller, or folded away; it is a page that zooms, so
@@ -55,7 +55,7 @@ test.describe('the notepad’s size', () => {
     notPhone(info.project.name);
     await beginStudy(page, 'John', 15);
     await typeNotes(page, 'Abide in the vine.');
-    await page.getByRole('button', { name: 'Write', exact: true }).click();
+    await stopTyping(page);
     // Underline the typed line, then resize: the line and its underline move together.
     const line = await box(page, 'textarea.pad-lines');
     const surface = await box(page, '.pad-surface');
