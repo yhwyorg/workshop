@@ -18,6 +18,15 @@ export type Lengths = Record<string, number[]>;
 
 export class RefError extends Error {}
 
+const split = (input: string) =>
+  /^([1-3]?\s*[^\d\s][^\d]*?)\s*(\d[\d:\s,.-]*)?$/i.exec(input.normalize('NFKC').trim().replace(/[–—]/g, '-'));
+
+/** The book a passage is in ("JHN"), or null; needs no chapter lengths, so it works before they load. */
+export function bookOf(input: string): string | null {
+  const m = split(input);
+  return (m && ALIASES.get(fold(m[1]))) ?? null;
+}
+
 /**
  * Reads what a pastor types: "John 15:1-11", "Ps 23", "1 Cor 13", "Gen 1:1-2:3",
  * "Jude 3" (one-chapter books take verse numbers directly). Anything it cannot
@@ -25,8 +34,7 @@ export class RefError extends Error {}
  * looks like a blank page that failed to load.
  */
 export function parsePassage(input: string, lengths: Lengths): Passage {
-  const s = input.normalize('NFKC').trim().replace(/[–—]/g, '-');
-  const m = /^([1-3]?\s*[^\d\s][^\d]*?)\s*(\d[\d:\s,.-]*)?$/i.exec(s);
+  const m = split(input);
   if (!m) throw new RefError('Type a passage such as “John 15:1-11” or “Psalm 23”.');
   const code = ALIASES.get(fold(m[1]));
   if (!code) throw new RefError(`“${m[1].trim()}” isn’t a book of the Bible this workshop knows.`);

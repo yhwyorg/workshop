@@ -110,6 +110,17 @@ export async function savedStudies(page: Page) {
 }
 
 /**
+ * The reader's Bible as saved: the marks and ink on one book ("JOH" is John), shared by
+ * every study of it. Nothing saved reads as nothing marked.
+ */
+export async function savedBible(page: Page, book = 'JOH'): Promise<{
+  marks: Record<string, string>;
+  ink: Record<string, { strokes: unknown[]; layout?: number } | undefined>;
+}> {
+  return page.evaluate((b) => JSON.parse(localStorage.getItem('workshop:store') ?? '{}').bible?.[b] ?? { marks: {}, ink: {} }, book);
+}
+
+/**
  * The Bible API behind the references, replaced by responses recorded from it
  * (e2e/recorded/, fetched from bible.helloao.org on 2026-10-31), so these tests are
  * about the page, not about a website's uptime. A chapter with no recording answers

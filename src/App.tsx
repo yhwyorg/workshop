@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Lengths } from './lib/refs';
+import { intoBible, withBible } from './lib/bible';
+import { chapterOf, parsePassage, type Lengths } from './lib/refs';
 import { href, useRoute } from './lib/route';
 import { applySkin, pensOf, validateSkin, type Skin } from './lib/skin';
-import { exportStudy, importStudy, load, newStudy, save, STORE_KEY, type KV, type Loaded, type Store, type Study } from './lib/studies';
+import { exportStudy, importStudy, load, newStudy, save, STORE_KEY, type Bible, type BookMarks, type KV, type Loaded, type Store, type Study } from './lib/studies';
 import { useMediaQuery } from './lib/media';
 import { loadLengths } from './lib/text';
 import { AUTO, BUILT_IN, DARK, DEFAULT, LIGHT } from './skins';
@@ -68,7 +69,10 @@ const remember = (k: string, v: string) => {
 export default function App() {
   const route = useRoute();
   const [loaded, setLoaded] = useState<Loaded>(() => load(kv));
-  const [store, setStore] = useState<Store | null>(loaded.state === 'ok' || loaded.state === 'empty' ? loaded.store : null);
+  // Marks and ink a study still holds on the Bible are moved into the reader's Bible as
+  // the store is read (bible.ts): studies from before it, or from an older copy of the app.
+  const read = loaded.state === 'ok' || loaded.state === 'empty' ? loaded.store : null;
+  const [store, setStore] = useState<Store | null>(() => read && intoBible(read));
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lengths, setLengths] = useState<Lengths | null>(null);
   const [textError, setTextError] = useState<string | null>(null);
@@ -91,12 +95,14 @@ export default function App() {
   }, []);
   // After "start with a clean desk", the freshly loaded (empty) store becomes the one in use.
   useEffect(() => {
-    if (loaded.state === 'ok' || loaded.state === 'empty') setStore((s) => s ?? loaded.store);
+    if (loaded.state === 'ok' || loaded.state === 'empty') setStore((s) => s ?? intoBible(loaded.store));
   }, [loaded]);
   useEffect(() => setMenu(false), [route]);
 
   // Saves shortly after the last change; a failure stays on screen until a save succeeds.
-  const first = useRef(true);
+  // The store exactly as read isn't saved back; one the Bible was folded into is, so the
+  // move is kept even if nothing else is changed.
+  const unchanged = useRef(read);
   // The change still waiting to be saved, if any.
   const unsaved = useRef<Store | null>(null);
   const saveNow = useCallback(() => {
@@ -111,8 +117,8 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (!store) return;
-    if (first.current) {
-      first.current = false;
+    if (store === unchanged.current) {
+      unchanged.current = null;
       return;
     }
     unsaved.current = store;
@@ -136,8 +142,12 @@ export default function App() {
   const update = useCallback((id: string, change: (s: Study) => Study) => {
     setStore((st) => st && { ...st, pads: st.pads.map((s) => (s.id === id ? { ...change(s), updated: new Date().toISOString() } : s)) });
   }, []);
+  const updateBible = useCallback((book: string, change: (b: BookMarks) => BookMarks) => {
+    setStore((st) => st && { ...st, bible: { ...st.bible, [book]: change(st.bible?.[book] ?? { marks: {}, ink: {} }) } });
+  }, []);
+  // A saved copy brings its marks into this Bible, as an old study does.
   const add = useCallback((s: Study) => {
-    setStore((st) => st && { ...st, pads: [s, ...st.pads] });
+    setStore((st) => st && intoBible({ ...st, pads: [s, ...st.pads] }));
     location.hash = href.study(s.id);
   }, []);
 
@@ -178,6 +188,8 @@ export default function App() {
       {menu && (
         <Menu
           current={current}
+          bible={store?.bible}
+          lengths={lengths}
           redLetter={redLetter}
           setRedLetter={(on) => {
             setRedLetter(on);
@@ -209,7 +221,10 @@ export default function App() {
         ) : route.view === 'about' ? (
           <About />
         ) : !store ? null : route.view === 'study' ? (
-          <StudyView study={current} lengths={lengths} update={update} openMenu={() => setMenu(true)} pens={pensOf(skin)} penArt={skin.pen} />
+          <StudyView
+            study={current} lengths={lengths} update={update} bible={store.bible} updateBible={updateBible}
+            openMenu={() => setMenu(true)} pens={pensOf(skin)} penArt={skin.pen}
+          />
         ) : route.view === 'studies' ? (
           <Studies studies={studies} />
         ) : route.view === 'new' ? (
@@ -220,8 +235,10 @@ export default function App() {
   );
 }
 
-function Menu({ current, redLetter, setRedLetter, close, add, remove }: {
+function Menu({ current, bible, lengths, redLetter, setRedLetter, close, add, remove }: {
   current: Study | undefined;
+  bible: Bible | undefined;
+  lengths: Lengths | null;
   redLetter: boolean;
   setRedLetter: (on: boolean) => void;
   close: () => void;
@@ -244,8 +261,20 @@ function Menu({ current, redLetter, setRedLetter, close, add, remove }: {
     requestAnimationFrame(() => requestAnimationFrame(() => print()));
   };
   const saveCopy = (s: Study) => {
+    // The copy carries the marks and ink on its chapters from the reader's Bible. Its
+    // chapters need the Bible's lengths; a copy saved without them would quietly lack
+    // every mark, so it waits for them instead.
+    let chapters: number[];
+    try {
+      if (!lengths) throw new Error('the Bible is still loading');
+      const p = parsePassage(s.passage, lengths);
+      chapters = Array.from({ length: chapterOf(p.end) - chapterOf(p.start) + 1 }, (_, i) => chapterOf(p.start) + i);
+    } catch (e) {
+      setError(`This study couldn’t be saved as a copy yet (${(e as Error).message}). Try again in a moment.`);
+      return;
+    }
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([exportStudy(s)], { type: 'application/json' }));
+    a.href = URL.createObjectURL(new Blob([exportStudy(withBible(s, bible, chapters))], { type: 'application/json' }));
     a.download = `${(s.title || s.passage).replace(/[^\w\s:-]/g, '').replace(/:/g, '.').trim() || 'study'}.study.json`;
     a.click();
   };
@@ -275,7 +304,10 @@ function Menu({ current, redLetter, setRedLetter, close, add, remove }: {
             <button
               type="button"
               className="danger"
-              onClick={() => confirm(`Delete “${current.title || current.passage}”? This can’t be undone.`) && remove(current.id)}
+              onClick={() =>
+                confirm(`Delete “${current.title || current.passage}”? This can’t be undone. What you marked and wrote on the Bible stays in your Bible.`) &&
+                remove(current.id)
+              }
             >
               Delete this study
             </button>

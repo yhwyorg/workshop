@@ -63,10 +63,29 @@ export interface Study {
   ink?: Record<string, Ink>;
 }
 
+/**
+ * One book of the reader's own Bible: the marks and ink on its text, shared by every
+ * study of it, as a printed Bible keeps what was written in it (see bible.ts).
+ */
+export interface BookMarks {
+  /** "verseKey:wordIndex" -> mark, as on a study. */
+  marks: Record<string, Mark>;
+  /** Ink by chapter number ("15"). */
+  ink: Record<string, Ink>;
+}
+/** By book code ("JOH"). */
+export type Bible = Record<string, BookMarks>;
+
 export interface Store {
   version: 1;
   /** Named "pads" when this was written; renaming it would orphan every saved study. */
   pads: Study[];
+  /**
+   * Absent until something is marked. Added to version 1 rather than bumping it: a
+   * copy of the app from before keeps it when saving (it saves the store it read
+   * spread), where a new version number would show that copy a "damaged" store.
+   */
+  bible?: Bible;
 }
 
 export const STORE_KEY = 'workshop:store';
@@ -101,6 +120,7 @@ export function load(kv: KV): Loaded {
     const parsed = JSON.parse(raw) as Store;
     if (parsed?.version !== 1 || !Array.isArray(parsed.pads)) throw new Error('not a version 1 store');
     parsed.pads.forEach((p, i) => checkStudy(p, `study ${i + 1}`));
+    for (const [book, b] of Object.entries(parsed.bible ?? {})) checkMarked(b, `the Bible's ${book}`);
     return { state: 'ok', store: parsed };
   } catch (e) {
     // Never start empty over unreadable data: the next save would overwrite it.
@@ -118,12 +138,20 @@ function checkStudy(p: unknown, where: string): asserts p is Study {
   if (!x || !str(x.id) || !str(x.title) || !str(x.passage) || !str(x.created) || !str(x.updated)) {
     throw new Error(`${where} is missing its id, title, passage or dates`);
   }
-  if (typeof x.notes !== 'object' || typeof x.marks !== 'object') throw new Error(`${where} has no notes or marks`);
+  if (typeof x.notes !== 'object') throw new Error(`${where} has no notes or marks`);
   for (const [k, v] of Object.entries(x.notes)) {
     if (!SHEETS.includes(k as Sheet) || typeof v !== 'string') throw new Error(`${where} has an unknown sheet "${k}"`);
   }
+  checkMarked({ marks: x.marks, ink: x.ink ?? {} }, where);
+}
+
+/** Marks and ink, on a study or in the Bible. */
+function checkMarked(x: BookMarks, where: string) {
+  if (!x || typeof x.marks !== 'object' || x.marks === null || typeof x.ink !== 'object' || x.ink === null) {
+    throw new Error(`${where} has no notes or marks`);
+  }
   for (const v of Object.values(x.marks)) if (!MARKS.includes(v)) throw new Error(`${where} has an unknown mark "${v}"`);
-  for (const [surface, ink] of Object.entries(x.ink ?? {})) {
+  for (const [surface, ink] of Object.entries(x.ink)) {
     const ok =
       typeof ink?.width === 'number' &&
       // A setting this version doesn't know would put the ink over the wrong words.

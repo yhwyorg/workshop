@@ -7,7 +7,7 @@ import type { PenKind } from '../lib/skin';
 import { keepReferences, MAX_REFERENCES, savedReferences, type Reference } from '../lib/reference';
 import { chapterOf, key, parsePassage, verseOf, type Lengths, type Passage, type VerseKey } from '../lib/refs';
 import { href } from '../lib/route';
-import { nextMark, SHEETS, type Ink, type Mark, type Sheet, type Study, type Tool } from '../lib/studies';
+import { nextMark, SHEETS, type Bible, type BookMarks, type Ink, type Mark, type Sheet, type Study, type Tool } from '../lib/studies';
 import { loadBook } from '../lib/text';
 import Fit from './Fit';
 import NotesEdge from './NotesEdge';
@@ -63,6 +63,7 @@ const PENCIL_KEY = 'workshop:pencil';
 /** The notepad's size, as the reader left it: width beside the Bible, height below it. */
 const NOTES_WIDTH_KEY = 'workshop:notes-width';
 const NOTES_HEIGHT_KEY = 'workshop:notes-height';
+const NO_MARKS: Record<string, Mark> = {};
 /** "1" when the notepad is folded away. */
 const FOLDED_KEY = 'workshop:notes-folded';
 const sizePref = (k: string) => {
@@ -107,10 +108,13 @@ const NOTES_W = 460;
  * times. The Bible and the notes shrink as a whole to make room, so the ink on them
  * stays on its words. On a phone every pane is a tab.
  */
-export default function StudyView({ study, lengths, update, openMenu, pens = PENS, penArt = 'none' }: {
+export default function StudyView({ study, lengths, update, bible, updateBible, openMenu, pens = PENS, penArt = 'none' }: {
   study: Study | undefined;
   lengths: Lengths | null;
   update: (id: string, change: (s: Study) => Study) => void;
+  /** The reader's own Bible: marks and ink on the text, shared by every study (bible.ts). */
+  bible: Bible | undefined;
+  updateBible: (book: string, change: (b: BookMarks) => BookMarks) => void;
   openMenu: () => void;
   /** The pens the paper style offers, in order (see pensOf). */
   pens?: Tool[];
@@ -208,29 +212,49 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
   }
   if (!passage) return <p className="notice" role="alert">“{study.passage}” couldn’t be opened.</p>;
 
+  // Ink on the Bible ("bible:15") is in the reader's Bible, shared by every study of the
+  // chapter, unless this study still holds its own: ink written on another setting of
+  // the text, which bible.ts leaves here rather than over the wrong words.
+  const mine = bible?.[passage.book];
+  const chapterOfSurface = (surface: string) => /^bible:(\d+)$/.exec(surface)?.[1];
+  const inBible = (surface: string) => !!chapterOfSurface(surface) && !study.ink?.[surface];
+  const inkOf = (surface: string) => (inBible(surface) ? mine?.ink[chapterOfSurface(surface)!] : study.ink?.[surface]);
+  const putInk = (surface: string, ink: Ink | undefined) => {
+    if (inBible(surface)) {
+      const ch = chapterOfSurface(surface)!;
+      updateBible(passage.book, (b) => {
+        const next = { ...b.ink };
+        if (ink) next[ch] = ink;
+        else delete next[ch];
+        return { ...b, ink: next };
+      });
+    } else {
+      update(study.id, (s) => {
+        const next = { ...s.ink };
+        if (ink) next[surface] = ink;
+        else delete next[surface];
+        return { ...s, ink: next };
+      });
+    }
+  };
   const setInk = (surface: string) => (ink: Ink) => {
-    setHistory((h) => [...h.slice(-49), { surface, before: study.ink?.[surface] }]);
-    update(study.id, (s) => ({ ...s, ink: { ...s.ink, [surface]: ink } }));
+    setHistory((h) => [...h.slice(-49), { surface, before: inkOf(surface) }]);
+    putInk(surface, ink);
   };
   const undo = () => {
     const last = history.at(-1);
     if (!last) return;
     setHistory((h) => h.slice(0, -1));
-    update(study.id, (s) => {
-      const ink = { ...s.ink };
-      if (last.before) ink[last.surface] = last.before;
-      else delete ink[last.surface];
-      return { ...s, ink };
-    });
+    putInk(last.surface, last.before);
   };
   const mark = (k: VerseKey, i: number) =>
-    update(study.id, (s) => {
+    updateBible(passage.book, (b) => {
       const id = `${k}:${i}`;
-      const next = nextMark(s.marks[id]);
-      const marks = { ...s.marks };
+      const next = nextMark(b.marks[id]);
+      const marks = { ...b.marks };
       if (next) marks[id] = next;
       else delete marks[id];
-      return { ...s, marks };
+      return { ...b, marks };
     });
 
   const name = BY_CODE.get(passage.book)!.name;
@@ -407,10 +431,10 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
       <section ref={biblePane} className={`pane bible-pane${front === 'bible' ? ' front' : ''}`} role="region" aria-label="Bible">
         <Fit width={BIBLE_W} gutter={20} on={!phone} onScale={setBibleScale}>
           <BibleText
-            key={ch} passage={passage} chapter={ch} name={name} book={book} marks={study.marks} onMark={mark}
+            key={ch} passage={passage} chapter={ch} name={name} book={book} marks={mine?.marks ?? NO_MARKS} onMark={mark}
             layout={layout === 'failed' ? 'failed' : layout?.[ch - 1] ?? null}
             onVerse={(v) => { setOpened(v); setComparing(false); setJump(false); }}
-            ink={study.ink?.[`bible:${ch}`]} setInk={setInk(`bible:${ch}`)} {...pen}
+            ink={inkOf(`bible:${ch}`)} setInk={setInk(`bible:${ch}`)} {...pen}
           />
         </Fit>
       </section>

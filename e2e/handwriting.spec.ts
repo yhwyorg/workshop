@@ -1,4 +1,4 @@
-import { beginStudy, draw, expect, savedStudies, show, test, twoFingerDrag, typeNotes } from './fixtures';
+import { beginStudy, draw, expect, savedBible, savedStudies, show, test, twoFingerDrag, typeNotes } from './fixtures';
 
 /**
  * The notes are for handwriting first. A Pencil, a finger or a mouse writes on them
@@ -34,7 +34,7 @@ test.describe('writing on the notes', () => {
     await beginStudy(page, 'John', 15);
     await draw(page, '.bible-text', 'touch', [40, 40], [200, 40]);
     await page.waitForTimeout(400);
-    expect((await savedStudies(page))[0]?.ink?.['bible:15']).toBeUndefined();
+    expect((await savedBible(page)).ink['15']).toBeUndefined();
   });
 
   test('once a Pencil has written, a resting palm or finger no longer does', async ({ page }) => {
