@@ -74,6 +74,60 @@ test.describe('writing on the notes', () => {
   });
 });
 
+test.describe('writing or typing, without choosing', () => {
+  // The user: "auto detect if someone is typing so we don't have to switch".
+  test('typing on a keyboard while writing switches to typing, and no letter is lost', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'the notes are a tab apart: the phone test below covers it');
+    await beginStudy(page, 'John', 15);
+    await expect(page.getByRole('button', { name: 'Write', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.type('Abide in me.');
+    await expect(page.getByRole('button', { name: 'Type', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByLabel('Notes', { exact: true })).toHaveValue('Abide in me.');
+    await expect.poll(async () => (await savedStudies(page))[0]?.notes?.page).toBe('Abide in me.');
+  });
+
+  test('a Pencil on the notes while typing switches back to writing, read-only again', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    await typeNotes(page, 'Abide.');
+    await draw(page, '.pad-surface', 'pen', [60, 220], [260, 230]);
+    await expect(page.getByRole('button', { name: 'Write', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByLabel('Notes', { exact: true })).toHaveAttribute('readonly', '');
+    await expect.poll(async () => (await savedStudies(page))[0]?.ink?.pad?.strokes?.length).toBe(1);
+  });
+
+  test('keys meant for something else are left to it', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'the Bible and notes are a tab apart on a phone');
+    await beginStudy(page, 'John', 15);
+    // Space on a focused word marks it, as it always did.
+    const vine = page.locator('.word').filter({ hasText: /^vine,$/ }).first();
+    await vine.focus();
+    await page.keyboard.press(' ');
+    await expect(vine).toHaveAttribute('aria-pressed', 'true');
+    // A shortcut isn't typing.
+    await page.keyboard.press('Control+a');
+    await expect(page.getByRole('button', { name: 'Write', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByLabel('Notes', { exact: true })).toHaveValue('');
+  });
+
+  test('typing with the notepad folded unfolds it, so the letters are seen', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'a phone has no fold');
+    await beginStudy(page, 'John', 15);
+    await page.getByRole('button', { name: 'Fold the notepad' }).click();
+    await expect(page.getByLabel('Notes', { exact: true })).toBeHidden();
+    await page.keyboard.type('Vine');
+    await expect(page.getByLabel('Notes', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Notes', { exact: true })).toHaveValue('Vine');
+  });
+
+  test('on a phone, typing brings the notes to the front', async ({ page }, info) => {
+    test.skip(info.project.name !== 'phone', 'phone only');
+    await beginStudy(page, 'John', 15);
+    await page.keyboard.type('Fruit');
+    await expect(page.getByRole('tab', { name: 'Notes' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByLabel('Notes', { exact: true })).toHaveValue('Fruit');
+  });
+});
+
 test.describe('typing on the notes', () => {
   test('while writing, the page cannot be typed on, so iPad cannot turn the Pencil into text', async ({ page }) => {
     // iPadOS Scribble converts Pencil writing over any editable field into typed text.

@@ -352,6 +352,12 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
     setFolded(on);
     pref.set(FOLDED_KEY, on ? '1' : '0');
   };
+  // Typing goes to the notes, so they come into view: the front tab on a phone, and
+  // unfolded elsewhere. Folded, the letters would land on a page no one can see.
+  const showNotes = () => {
+    setPane('notes');
+    if (folded) fold(false);
+  };
   const keepSize = (key: string) => (px: number | null) => pref.set(key, px === null ? '' : String(px));
   // The sizes are applied as CSS variables; folded, the layout's own folded sizes rule.
   const sizes = folded || phone ? {} : {
@@ -444,7 +450,10 @@ export default function StudyView({ study, lengths, update, openMenu, pens = PEN
         ))}
         {/* A bigger notepad is a bigger page: it zooms up to nearly twice its size. */}
         <Fit width={NOTES_W} gutter={16} max={1.8} on={!phone}>
-          <Notes study={study} update={update} ink={study.ink?.pad} setInk={setInk('pad')} mode={notesMode} setMode={chooseNotesMode} {...notesPen} />
+          <Notes
+            study={study} update={update} ink={study.ink?.pad} setInk={setInk('pad')} mode={notesMode} setMode={chooseNotesMode}
+            onTyping={showNotes} {...notesPen}
+          />
         </Fit>
       </section>
 
@@ -694,13 +703,15 @@ function BibleText({ passage, chapter, name, book, layout, marks, onMark, onVers
   );
 }
 
-function Notes({ study, update, ink, setInk, mode, setMode, ...pen }: {
+function Notes({ study, update, ink, setInk, mode, setMode, onTyping, ...pen }: {
   study: Study;
   update: (id: string, change: (s: Study) => Study) => void;
   ink: Ink | undefined;
   setInk: (ink: Ink) => void;
   mode: 'write' | 'type';
   setMode: (m: 'write' | 'type') => void;
+  /** Called when typing begins, so a phone shows the notes. */
+  onTyping: () => void;
   tool: Tool | 'eraser';
   mouseDraws: boolean;
   fingerDraws: boolean;
@@ -725,6 +736,49 @@ function Notes({ study, update, ink, setInk, mode, setMode, ...pen }: {
   const writing = mode === 'write';
   const inkLow = inkBottom(ink);
 
+  // Write or Type without choosing (the user: "auto detect if someone is typing so we
+  // don't have to switch"). A key typed while not in a text box switches to typing and
+  // lands at the end of the notes; from then on the keys go to the page itself. Keys
+  // that belong to something else are left alone: shortcuts, typing in the title or
+  // another box, and Space or Enter on a button (Space marks a focused word).
+  // The text is kept in a ref while the page catches up: keys typed quickly arrive
+  // before the page is focused, and each would otherwise be added to a stale copy,
+  // losing all but the last.
+  const typed = useRef<string | null>(null);
+  const latest = useRef(body);
+  latest.current = body;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.key.length !== 1) return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      if (el?.tagName === 'BUTTON' && e.key === ' ') return;
+      e.preventDefault();
+      typed.current = (typed.current ?? latest.current) + e.key;
+      update(study.id, (s) => ({ ...s, notes: { ...s.notes, page: typed.current! } }));
+      setMode('type');
+      onTyping();
+      requestAnimationFrame(() => {
+        typed.current = null;
+        const t = page.current;
+        if (!t) return;
+        t.focus();
+        t.setSelectionRange(t.value.length, t.value.length);
+      });
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, [study.id, update, setMode, onTyping]);
+  // And back: a Pencil on the notes while typing means writing. The page goes read-only
+  // again, so iPadOS can't turn the handwriting into typed text.
+  const onPen = () => {
+    pen.onPen();
+    if (mode === 'type') {
+      setMode('write');
+      (document.activeElement as HTMLElement | null)?.blur();
+    }
+  };
+
   return (
     <div className="notes-col">
       <div className="notes-mode" role="group" aria-label="Notes by">
@@ -732,7 +786,7 @@ function Notes({ study, update, ink, setInk, mode, setMode, ...pen }: {
         <button type="button" aria-pressed={!writing} onClick={() => setMode('type')}>Type</button>
       </div>
       <InkSurface
-        ink={ink} onChange={setInk} {...pen} className={`pad-surface${writing ? ' writing' : ''}`}
+        ink={ink} onChange={setInk} {...pen} onPen={onPen} className={`pad-surface${writing ? ' writing' : ''}`}
         // Room to keep writing below the lowest line written, about ten lines' worth.
         style={inkLow ? { minHeight: inkLow + 320 } : undefined}
       >
