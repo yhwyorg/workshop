@@ -10,7 +10,7 @@
  */
 import { LAYOUT } from './layout';
 import { bookOf, chapterOf } from './refs';
-import type { Bible, Ink, Store, Study } from './studies';
+import { checkStore, type Bible, type Ink, type Store, type Study } from './studies';
 
 /**
  * Where ink on a surface is kept in a book of the Bible: the text's ink by chapter ("15"),
@@ -81,6 +81,82 @@ function join(into: Ink | undefined, ink: Ink): Ink | null {
   // The same study opened twice from a saved copy would otherwise double every stroke.
   const seen = new Set(into.strokes.map((s) => JSON.stringify(s)));
   return { ...into, strokes: [...into.strokes, ...ink.strokes.filter((s) => !seen.has(JSON.stringify(s)))] };
+}
+
+const BACKUP_FORMAT = 'workshop-backup/1';
+
+/**
+ * Everything, as a file to keep. All of it lives in one browser on one device, and is gone
+ * if that browser's data is cleared. Unlike a saved copy of a study this isn't for sending:
+ * it holds the reader's whole Bible and every study.
+ */
+export function exportBackup(store: Store, now = new Date()): string {
+  return JSON.stringify({ format: BACKUP_FORMAT, saved: now.toISOString(), store });
+}
+
+/** The store in a backup; null if this file isn't a backup; throws if it is one but is damaged. */
+export function readBackup(text: string): Store | null {
+  let parsed: { format?: unknown; store?: unknown };
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (parsed?.format !== BACKUP_FORMAT) return null;
+  try {
+    checkStore(parsed.store);
+  } catch (e) {
+    throw new Error(`This backup is damaged and wasn’t opened (${(e as Error).message}). Nothing here has changed.`);
+  }
+  return parsed.store;
+}
+
+export interface Merged {
+  store: Store;
+  brought: { marks: number; pages: number; studies: number };
+  /** Pages of ink written on another setting of the text, which the file keeps and this Bible can't join. */
+  leftOut: number;
+}
+
+/**
+ * A backup added to what is here. Only ever adds: an old backup opened by mistake must
+ * not wipe what was written since. So on a word marked in both, today's mark stays; a study
+ * in both keeps its newer version; and what was erased since the backup comes back.
+ */
+export function mergeBackup(into: Store, backup: Store): Merged {
+  const brought = { marks: 0, pages: 0, studies: 0 };
+  let leftOut = 0;
+  const pads = [...into.pads];
+  for (const s of backup.pads) {
+    const at = pads.findIndex((p) => p.id === s.id);
+    if (at < 0) pads.push(s);
+    else if (s.updated > pads[at].updated) pads[at] = s;
+    else continue;
+    brought.studies++;
+  }
+  const bible: Bible = { ...into.bible };
+  for (const [book, from] of Object.entries(backup.bible ?? {})) {
+    const here = { marks: { ...bible[book]?.marks }, ink: { ...bible[book]?.ink } };
+    for (const [k, m] of Object.entries(from.marks)) {
+      if (here.marks[k]) continue;
+      here.marks[k] = m;
+      brought.marks++;
+    }
+    for (const [page, ink] of Object.entries(from.ink)) {
+      if (!ink.strokes.length) continue;
+      const joined = join(here.ink[page], ink);
+      if (!joined) leftOut++;
+      else if (joined.strokes.length > (here.ink[page]?.strokes.length ?? 0)) {
+        here.ink[page] = joined;
+        brought.pages++;
+      }
+    }
+    if (book in bible || Object.keys(here.marks).length || Object.keys(here.ink).length) bible[book] = here;
+  }
+  const merged: Store = { ...into, pads };
+  if (Object.keys(bible).length) merged.bible = bible;
+  // A study in the backup may still hold marks from before the one Bible.
+  return { store: intoBible(merged), brought, leftOut };
 }
 
 /**

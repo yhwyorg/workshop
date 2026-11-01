@@ -1,4 +1,4 @@
-import { beginStudy, draw, expect, savedBible, savedStudies, test } from './fixtures';
+import { beginStudy, draw, expect, savedBible, savedStudies, show, test, typeNotes } from './fixtures';
 
 /**
  * One Bible, every study. The user asked to "markup the bible too and put notes in there
@@ -113,5 +113,68 @@ test.describe('a saved copy', () => {
     await expect(elsewhere.locator('.scripture')).toBeVisible();
     await expect(vine(elsewhere)).toHaveAttribute('aria-label', 'vine,, underlined');
     await expect.poll(async () => (await savedBible(elsewhere)).marks).toEqual({ '15001:4': 'underline' });
+  });
+});
+
+test.describe('a backup of everything', () => {
+  const menu = (page: import('@playwright/test').Page) => page.getByRole('button', { name: 'Menu', exact: true }).first();
+
+  test('brings back the marks, the ink and the notes in a browser that has lost them', async ({ page, browser }) => {
+    await beginStudy(page, 'John', 15);
+    await vine(page).click();
+    await draw(page, '.bible-text', 'pen', [40, 80], [200, 90]);
+    await typeNotes(page, 'Remain.');
+    await expect.poll(async () => (await savedBible(page)).ink['15']?.strokes.length).toBe(1);
+    await expect.poll(async () => (await savedStudies(page))[0]?.notes?.page).toBe('Remain.');
+    await menu(page).click();
+    await expect(page.getByText('Not saved yet on this device')).toBeVisible();
+    const saving = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Save my Bible and all my studies' }).click();
+    const download = await saving;
+    expect(download.suggestedFilename()).toMatch(/^my-bible-\d{4}-\d{2}-\d{2}\.json$/);
+    await expect(page.getByText('Last saved today')).toBeVisible();
+    const file = await download.path();
+
+    // A browser with nothing in it, as after its data is cleared.
+    const elsewhere = await (await browser.newContext()).newPage();
+    await elsewhere.goto(page.url().replace(/#.*/, '#/studies'));
+    await menu(elsewhere).click();
+    await elsewhere.locator('input[type=file]').setInputFiles(file);
+    await expect(elsewhere.getByRole('status')).toContainText('Brought back 1 mark, 1 page of writing and 1 study');
+    await elsewhere.getByRole('button', { name: 'Close', exact: true }).click();
+    await elsewhere.getByRole('link', { name: /John 15/ }).click();
+    await expect(vine(elsewhere)).toHaveAttribute('aria-label', 'vine,, underlined');
+    await expect(elsewhere.locator('.bible-text svg.ink path')).toHaveCount(1);
+    await show(elsewhere, 'Notes');
+    await expect(elsewhere.getByLabel('Notes', { exact: true })).toHaveValue('Remain.');
+
+    // Opened again, it says so rather than doubling anything.
+    await menu(elsewhere).click();
+    await elsewhere.locator('input[type=file]').setInputFiles(file);
+    await expect(elsewhere.getByRole('status')).toContainText('already here');
+    await expect.poll(async () => (await savedStudies(elsewhere)).length).toBe(1);
+  });
+
+  test('the menu can be read: nothing shows through it', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    await menu(page).click();
+    const background = await page.getByRole('navigation', { name: 'Menu' }).evaluate((el) => getComputedStyle(el).backgroundColor);
+    // "rgba(…, 0.74)" or "color(srgb … / 0.74)" would be see-through; a solid colour has no alpha.
+    expect(background).not.toMatch(/rgba\(|\/\s*0?\.\d/);
+  });
+
+  test('a damaged file is refused out loud, and nothing here changes', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    await vine(page).click();
+    await expect.poll(async () => Object.keys((await savedBible(page)).marks)).toHaveLength(1);
+    await menu(page).click();
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'my-bible.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify({ format: 'workshop-backup/1', store: { version: 1, pads: [{ id: 'x' }] } })),
+    });
+    await expect(page.getByRole('alert')).toContainText('backup');
+    expect(Object.keys((await savedBible(page)).marks)).toHaveLength(1);
+    expect(await savedStudies(page)).toHaveLength(1);
   });
 });

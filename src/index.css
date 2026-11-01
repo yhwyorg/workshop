@@ -101,8 +101,9 @@ button:disabled { opacity: 0.35; cursor: default; }
 .menu {
   position: absolute; top: 10px; left: 10px; bottom: 10px; width: min(320px, 86vw); padding: 20px 14px;
   display: flex; flex-direction: column; gap: 2px; overflow-y: auto; border-radius: 18px;
-  background: var(--glass); border: 1px solid var(--hairline); box-shadow: var(--float-shadow);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5); backdrop-filter: blur(24px) saturate(1.5);
+  /* Opaque, like the verse panel: this is read from. On glass the chapter behind ran
+     through its words wherever the blur didn't render (seen in WebKit). */
+  background: var(--slip); color: var(--slip-ink); border: 1px solid var(--hairline); box-shadow: var(--float-shadow);
   animation: slide-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .menu a, .menu > button {
@@ -114,6 +115,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 .menu hr { width: 100%; border: 0; border-top: 1px solid var(--hairline); margin: 8px 0; }
 .menu-brand { font-family: var(--font-scripture); font-size: 1.2rem; font-weight: 500; margin: 4px 12px 14px; }
 .menu-label { margin: 2px 12px 4px; font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.menu-note { margin: 0 12px 8px; color: var(--slip-ink); opacity: 0.8; font-size: 0.95rem; line-height: 1.35; }
 .menu-close {
   position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; border: 0; border-radius: 50%;
   background: color-mix(in srgb, var(--slip-ink) 7%, transparent); font-size: 1.3rem; line-height: 1; color: var(--muted);
