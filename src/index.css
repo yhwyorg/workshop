@@ -777,8 +777,17 @@ button:disabled { opacity: 0.35; cursor: default; }
   .notes-bar.many .pager-which { flex: 0 1 auto; min-width: 0; }
   .notes-bar.many button { flex: none; }
 }
+/* Small phones: the room for a long name comes from the arrows, which stay 44 tall. CI's fonts
+   ran about 14px wider than Windows' and cut "2 Chron 36" at 375px, so this keeps that much spare. */
+@media (max-width: 389px) {
+  .toolbar:not(.tucked) { gap: 0; }
+  .toolbar:not(.tucked) .tb-turn { min-width: 38px; padding: 0; }
+}
 /* The very smallest phones: 38px wide but still 44 tall, so "1 Thess 5" can be read whole. */
-@media (max-width: 359px) { .toolbar:not(.tucked) .tb-icon, .toolbar:not(.tucked) .tb-look { min-width: 38px; padding: 0; } }
+@media (max-width: 359px) {
+  .toolbar:not(.tucked) .tb-icon, .toolbar:not(.tucked) .tb-look { min-width: 38px; padding: 0; }
+  .toolbar:not(.tucked) .tb-tuck { min-width: 28px; }
+}
 /* Where a phone has the room, the word itself: "αβ" asks the reader to know what it means. */
 @media (min-width: 375px) and (max-width: 599px), (max-height: 500px) {
   .tb-look-word { display: inline; }

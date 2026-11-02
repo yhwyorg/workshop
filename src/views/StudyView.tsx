@@ -660,9 +660,9 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
             <span className="tb-menu" aria-hidden="true" />
           </button>
           <span className="tb-sep" aria-hidden="true" />
-          <button type="button" className="tb-icon" onClick={() => go(ch - 1)} disabled={ch <= 1} aria-label="Previous chapter">‹</button>
+          <button type="button" className="tb-icon tb-turn" onClick={() => go(ch - 1)} disabled={ch <= 1} aria-label="Previous chapter">‹</button>
           <button type="button" className="tb-place" onClick={() => { setJump((j) => !j); setComparing(false); }} aria-expanded={jump} aria-label={`${name} ${ch}`}>{narrowBar ? shortName(passage.book) : name} {ch}</button>
-          <button type="button" className="tb-icon" onClick={() => go(ch + 1)} disabled={ch >= chapters} aria-label="Next chapter">›</button>
+          <button type="button" className="tb-icon tb-turn" onClick={() => go(ch + 1)} disabled={ch >= chapters} aria-label="Next chapter">›</button>
           <button
             type="button" className="tb-icon tb-compare" onClick={() => { setComparing((c) => !c); setJump(false); }} aria-expanded={comparing}
             aria-label="Compare" title="Compare with another translation or a commentary"
