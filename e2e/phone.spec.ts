@@ -85,3 +85,157 @@ test.describe('the notes on a phone', () => {
     await expect(page.locator('.scripture')).toBeInViewport();
   });
 });
+
+const toolbar = (page: Page) => page.getByRole('toolbar', { name: 'Study' });
+const solid = (page: Page, selector: string) =>
+  page.locator(selector).evaluate((el) => {
+    const c = getComputedStyle(el).backgroundColor.match(/[\d.]+/g)!.map(Number);
+    return c.length === 3 || c[3] === 1;
+  });
+
+test.describe('the toolbar on a phone', () => {
+  test('is docked along the bottom and solid, so it doesn’t lie across the verses', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    const b = (await toolbar(page).boundingBox())!;
+    const v = page.viewportSize()!;
+    expect(b.x).toBe(0);
+    expect(b.width).toBe(v.width);
+    expect(b.y + b.height).toBe(v.height);
+    expect(await solid(page, '.toolbar')).toBe(true);
+    await expect(page.getByRole('button', { name: 'Move the toolbar' })).toBeHidden();
+  });
+
+  test('the end of a chapter can be read clear of it', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    await page.locator('.scripture').waitFor();
+    const pane = page.getByRole('region', { name: 'Bible', exact: true });
+    await pane.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+    const end = (await page.getByText('World English Bible').boundingBox())!;
+    expect(end.y + end.height).toBeLessThanOrEqual((await toolbar(page).boundingBox())!.y);
+  });
+
+  for (const [width, book, chapter] of [[320, '1 Thessalonians', 5], [375, '2 Chronicles', 36], [390, 'Song of Songs', 2]] as const) {
+    test(`keeps one row and every button at ${width}px, in ${book}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 600 });
+      await beginStudy(page, book, chapter);
+      expect((await toolbar(page).boundingBox())!.height).toBeLessThan(60);
+      for (const name of ['Menu', 'Previous chapter', 'Next chapter', 'Compare', 'Minimize the toolbar']) {
+        await expect(page.getByRole('button', { name, exact: true })).toBeInViewport({ ratio: 1 });
+      }
+      const place = page.locator('.tb-place');
+      expect((await place.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect(await place.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    });
+  }
+
+  test('says "Greek" in words where there is room', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 664 });
+    await beginStudy(page, 'John', 15);
+    await expect(page.locator('.tb-look-word')).toBeVisible();
+    await expect(page.locator('.tb-look-letters')).toBeHidden();
+  });
+
+  test('ignores a spot it was moved to on a wider screen', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    await page.evaluate(() => localStorage.setItem('workshop:toolbar-spot', JSON.stringify({ x: 20, y: 120 })));
+    await page.reload();
+    const b = (await toolbar(page).boundingBox())!;
+    expect(b.y + b.height).toBe(page.viewportSize()!.height);
+  });
+
+  test('tucked, it is a small solid button, and comes back docked', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    await page.getByRole('button', { name: 'Minimize the toolbar', exact: true }).click();
+    const small = (await toolbar(page).boundingBox())!;
+    expect(small.width).toBeLessThan(130);
+    expect(await solid(page, '.toolbar')).toBe(true);
+    await page.getByRole('button', { name: 'Show the toolbar', exact: true }).click();
+    expect((await toolbar(page).boundingBox())!.width).toBe(page.viewportSize()!.width);
+  });
+});
+
+test.describe('what opens above the toolbar on a phone', () => {
+  for (const [name, button] of [['the chapters', /^John 15$/], ['the Compare list', /^Compare$/]] as const) {
+    test(`${name} are solid, and clear of it`, async ({ page }) => {
+      await beginStudy(page, 'John', 15);
+      await page.getByRole('button', { name: button }).click();
+      const panel = page.locator('.chapter-picker');
+      await expect(panel).toBeVisible();
+      expect(await solid(page, '.chapter-picker')).toBe(true);
+      const p = (await panel.boundingBox())!;
+      expect(p.y + p.height).toBeLessThanOrEqual((await toolbar(page).boundingBox())!.y);
+    });
+  }
+});
+
+test.describe('the tabs on a phone', () => {
+  test('are 44px tall and share the width', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    const t = (await page.getByRole('tab', { name: 'Bible', exact: true }).boundingBox())!;
+    expect(t.height).toBeGreaterThanOrEqual(44);
+    expect(t.width).toBeGreaterThan(page.viewportSize()!.width / 2 - 30);
+  });
+
+  test('the menu’s Close is 44px', async ({ page }) => {
+    await beginStudy(page, 'John', 15);
+    await page.getByRole('button', { name: 'Menu', exact: true }).click();
+    const c = (await page.getByRole('button', { name: 'Close', exact: true }).boundingBox())!;
+    expect(c.width).toBeGreaterThanOrEqual(44);
+    expect(c.height).toBeGreaterThanOrEqual(44);
+  });
+});
+
+test.describe('pages of notes on a phone', () => {
+  for (const width of [320, 375, 390]) {
+    test(`the controls stay one row at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 600 });
+      await beginStudy(page, 'John', 15);
+      await show(page, 'Notes');
+      await page.getByRole('button', { name: 'Add a page', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Remove this page' })).toBeVisible();
+      const bar = (await page.locator('.notes-bar').boundingBox())!;
+      expect(bar.height).toBeLessThan(60);
+      expect(bar.x + bar.width).toBeLessThanOrEqual(width);
+      for (const name of ['Previous page', 'Next page', 'Add a page', 'Remove this page']) {
+        await expect(page.getByRole('button', { name, exact: true })).toBeInViewport({ ratio: 1 });
+      }
+    });
+  }
+});
+
+test.describe('a phone on its side', () => {
+  const sideways = async (page: Page) => {
+    await page.setViewportSize({ width: 667, height: 340 });
+    await beginStudy(page, 'John', 15);
+  };
+
+  test('is still a phone: one pane, a tap apart, and most of the screen to read', async ({ page }) => {
+    await sideways(page);
+    await expect(page.locator('.scripture')).toBeInViewport();
+    await expect(page.locator('.notes-pane')).toBeHidden();
+    const pane = (await page.getByRole('region', { name: 'Bible', exact: true }).boundingBox())!;
+    const bar = (await toolbar(page).boundingBox())!;
+    expect(bar.height).toBeLessThan(60);
+    expect(bar.y - pane.y).toBeGreaterThan(340 * 0.75);
+    await page.getByRole('tab', { name: 'Notes', exact: true }).click();
+    await expect(page.getByLabel('Notes', { exact: true })).toBeInViewport();
+  });
+
+  test('the tabs join the toolbar’s row without covering a button', async ({ page }) => {
+    await page.setViewportSize({ width: 667, height: 340 });
+    await beginStudy(page, '2 Chronicles', 36);
+    const tabs = (await page.locator('.pane-tabs').boundingBox())!;
+    expect(tabs.y + tabs.height).toBeLessThanOrEqual(340);
+    expect(tabs.x + tabs.width).toBeLessThanOrEqual(667);
+    const last = (await page.getByRole('button', { name: 'Minimize the toolbar', exact: true }).boundingBox())!;
+    expect(last.x + last.width).toBeLessThanOrEqual(tabs.x);
+  });
+
+  test('what opens above the toolbar still fits on the short screen', async ({ page }) => {
+    await sideways(page);
+    await page.getByRole('button', { name: 'John 15', exact: true }).click();
+    const p = (await page.locator('.chapter-picker').boundingBox())!;
+    expect(p.y).toBeGreaterThanOrEqual(0);
+    await expect(page.getByRole('button', { name: '15', exact: true })).toBeVisible();
+  });
+});

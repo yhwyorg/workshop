@@ -55,7 +55,8 @@ test.describe('the toolbar', () => {
     await expect(page.getByRole('button', { name: 'Greek', exact: true })).toBeInViewport({ ratio: 1 });
   });
 
-  test('drags by its grip to anywhere, stays there, and a double-click brings it home', async ({ page }) => {
+  test('drags by its grip to anywhere, stays there, and a double-click brings it home', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'docked along the bottom there: phone.spec.ts');
     await beginStudy(page, 'John', 15);
     const home = await box(page, '.toolbar');
     const grip = await box(page, '.tb-grip');
