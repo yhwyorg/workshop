@@ -8,7 +8,8 @@ import { beginStudy, draw, expect, savedBible, savedStudies, show, stopTyping, t
 const padStrokes = async (page: import('@playwright/test').Page) => (await savedStudies(page))[0]?.ink?.pad?.strokes?.length ?? 0;
 
 test.describe('writing on the notes', () => {
-  test('a finger writes on them', async ({ page }) => {
+  test('a finger writes on them', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'a finger scrolls there: phone.spec.ts');
     await beginStudy(page, 'John', 15);
     await show(page, 'Notes');
     await draw(page, '.pad-surface', 'touch', [60, 160], [260, 170]);
@@ -16,7 +17,8 @@ test.describe('writing on the notes', () => {
     await expect(page.locator('.pad-surface svg.ink path')).toHaveCount(1);
   });
 
-  test('a mouse writes on them, with no pen to choose first', async ({ page }) => {
+  test('a mouse writes on them, with no pen to choose first', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'a finger scrolls there: phone.spec.ts');
     await beginStudy(page, 'John', 15);
     await show(page, 'Notes');
     await draw(page, '.pad-surface', 'mouse', [60, 160], [260, 170]);
@@ -52,7 +54,8 @@ test.describe('writing on the notes', () => {
     expect(await padStrokes(page)).toBe(1);
   });
 
-  test('two fingers scroll the notes and leave no mark', async ({ page }) => {
+  test('two fingers scroll the notes and leave no mark', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'a finger scrolls there: phone.spec.ts');
     await beginStudy(page, 'John', 15);
     await typeNotes(page, Array.from({ length: 80 }, (_, i) => `Line ${i + 1}`).join('\n'));
     await stopTyping(page);
@@ -190,7 +193,8 @@ test.describe('no switch between writing and typing', () => {
     expect(await strokes(page)).toBe(0);
   });
 
-  test('a mouse click does the same, and a drag writes', async ({ page }) => {
+  test('a mouse click does the same, and a drag writes', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'a finger scrolls there: phone.spec.ts');
     await beginStudy(page, 'John', 15);
     await show(page, 'Notes');
     await draw(page, '.pad-surface', 'mouse', [60, 200], [260, 210]);
@@ -201,7 +205,8 @@ test.describe('no switch between writing and typing', () => {
     expect(await strokes(page)).toBe(1);
   });
 
-  test('a finger’s drag writes, and doesn’t bring the keyboard', async ({ page }) => {
+  test('a finger’s drag writes, and doesn’t bring the keyboard', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'a finger scrolls there: phone.spec.ts');
     await beginStudy(page, 'John', 15);
     await show(page, 'Notes');
     await draw(page, '.pad-surface', 'touch', [60, 200], [260, 210]);
@@ -210,7 +215,8 @@ test.describe('no switch between writing and typing', () => {
     await expect(notes(page)).not.toBeFocused();
   });
 
-  test('a tap right after writing is the dot on an "i", not a request to type', async ({ page }) => {
+  test('a tap right after writing is the dot on an "i", not a request to type', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'a finger scrolls there: phone.spec.ts');
     await beginStudy(page, 'John', 15);
     await show(page, 'Notes');
     await draw(page, '.pad-surface', 'touch', [60, 200], [260, 210]);

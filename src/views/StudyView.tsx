@@ -495,19 +495,28 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   // The notes, when for writing, take every pointer: nothing there needs a click.
   // Fingers stop once a Pencil has been used, as Apple Notes does, so a palm resting
   // on the glass leaves no marks.
-  const notesPen = { ...pen, mouseDraws: writeNotes || pen.mouseDraws, fingerDraws: writeNotes && !pencil };
+  // Not on a phone, where a swipe is how the notes are scrolled: it drew a line instead, and
+  // with no room for pens there, no Undo or eraser could take the line off. Fingers there
+  // scroll and tap to type. Ink brought over from an iPad still shows.
+  const writesByHand = writeNotes && !phone;
+  const notesPen = { ...pen, mouseDraws: writesByHand || pen.mouseDraws, fingerDraws: writesByHand && !pencil };
+  const typingOnPhone = phone && !writeNotes;
 
   return (
     <div
       ref={workspace}
-      className={`workspace${references.length ? ' has-ref' : ''}${folded && !phone ? ' notes-folded' : ''}`}
+      className={`workspace${references.length ? ' has-ref' : ''}${folded && !phone ? ' notes-folded' : ''}${typingOnPhone ? ' typing' : ''}`}
       style={{ '--bible-scale': bibleScale, ...sizes } as CSSProperties}
     >
       {phone && (
         <div className="pane-switch">
           <div className="pane-tabs" role="tablist" aria-label="Show">
             {tabs.map((t) => (
-              <button key={t.id} type="button" role="tab" aria-selected={front === t.id} onClick={() => setPane(t.id)}>{t.label}</button>
+              <button
+                key={t.id} type="button" role="tab" aria-selected={front === t.id}
+                // A button doesn't take the focus on iOS, so the keyboard would stay up over the next tab.
+                onClick={() => { (document.activeElement as HTMLElement | null)?.blur(); setPane(t.id); }}
+              >{t.label}</button>
             ))}
           </div>
         </div>
@@ -571,7 +580,7 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
         <Fit width={NOTES_W} gutter={16} max={1.8} on={!phone}>
           <Notes
             study={study} update={update} pageNo={Math.min(notesPage, notePageCount(study))}
-            setInk={setInk} mode={notesMode} setMode={setNotesMode}
+            setInk={setInk} mode={notesMode} setMode={setNotesMode} byHand={!phone}
             onTyping={showNotes} {...notesPen}
           />
         </Fit>
@@ -946,7 +955,7 @@ function NotesPager({ study, update, pageNo, turnTo, forgetUndo }: {
   );
 }
 
-function Notes({ study, update, pageNo, setInk, mode, setMode, onTyping, ...pen }: {
+function Notes({ study, update, pageNo, setInk, mode, setMode, byHand, onTyping, ...pen }: {
   study: Study;
   update: (id: string, change: (s: Study) => Study) => void;
   /** The page on screen, counted from 1. */
@@ -954,6 +963,8 @@ function Notes({ study, update, pageNo, setInk, mode, setMode, onTyping, ...pen 
   setInk: (surface: string) => (ink: Ink) => void;
   mode: 'write' | 'type';
   setMode: (m: 'write' | 'type') => void;
+  /** Whether a finger or mouse can write here; a phone only types. */
+  byHand: boolean;
   /** Called when typing begins, so a phone shows the notes. */
   onTyping: () => void;
   tool: Tool | 'eraser';
@@ -1081,7 +1092,7 @@ function Notes({ study, update, pageNo, setInk, mode, setMode, onTyping, ...pen 
         <textarea
           ref={page} className="pad-lines" value={body} onChange={(e) => update(study.id, (s) => withNotePageText(s, pageNo, e.target.value))} aria-label="Notes" rows={18}
           readOnly={writing}
-          placeholder={writing ? (ink?.strokes.length ? '' : 'Write here, or tap to type…') : 'Type here…'}
+          placeholder={!writing ? 'Type here…' : ink?.strokes.length ? '' : byHand ? 'Write here, or tap to type…' : 'Tap to type…'}
         />
         {/* The same writing for print: a text box cannot break across pages, so the
             browser moved it whole to the next sheet and stranded the title. */}
