@@ -168,7 +168,9 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   const [opened, setOpened] = useState<number | null>(null);
   const [notesMode, setNotesMode] = useState<'write' | 'type'>('write');
   const [pencil, setPencil] = useState(() => pref.get(PENCIL_KEY) === '1');
-  const phone = useMediaQuery('(max-width: 599px)');
+  // Keep in step with the phone rules in index.css. A phone on its side is still a phone:
+  // by width alone it got an iPad's two stacked panes, 147px of notes under a two-row toolbar.
+  const phone = useMediaQuery('(max-width: 599px), (max-height: 500px)');
   // Keep in step with the toolbar's own narrow rules in index.css.
   const narrowBar = useMediaQuery('(max-width: 1099px)');
   const upright = useMediaQuery('(max-width: 999px)') && !phone;
@@ -197,7 +199,8 @@ export default function StudyView({ study, lengths, update, bible, updateBible, 
   // the far edge would open the whole toolbar from there, off the screen.
   const [tucked, setTucked] = useState(() => pref.get(BAR_TUCKED_KEY) === '1');
   const [tuckedSpot, setTuckedSpot] = useState(() => spotPref(TUCKED_SPOT_KEY));
-  const barSpot = tucked ? tuckedSpot : fullSpot;
+  // A phone's full toolbar is docked along the bottom, wherever it was moved on a wider screen.
+  const barSpot = tucked ? tuckedSpot : phone ? null : fullSpot;
   const setBarSpot = tucked ? setTuckedSpot : setFullSpot;
   const barSpotKey = tucked ? TUCKED_SPOT_KEY : BAR_SPOT_KEY;
   const [penSpot, setPenSpot] = useState(() => spotPref(PEN_SPOT_KEY));
@@ -938,7 +941,7 @@ function NotesPager({ study, update, pageNo, turnTo, forgetUndo }: {
     turnTo(Math.min(pageNo, pages - 1));
   };
   return (
-    <div className="notes-bar" role="group" aria-label="Pages of notes">
+    <div className={`notes-bar${pages > 1 ? ' many' : ''}`} role="group" aria-label="Pages of notes">
       {pages > 1 && (
         <>
           <button type="button" className="pager-turn" onClick={() => turnTo(pageNo - 1)} disabled={pageNo <= 1} aria-label="Previous page">‹</button>
@@ -948,7 +951,7 @@ function NotesPager({ study, update, pageNo, turnTo, forgetUndo }: {
           <button type="button" className="pager-turn" onClick={() => turnTo(pageNo + 1)} disabled={pageNo >= pages} aria-label="Next page">›</button>
         </>
       )}
-      <button type="button" className="pager-add" onClick={addPage}>Add a page</button>
+      <button type="button" className="pager-add" onClick={addPage} aria-label="Add a page">Add<span className="pager-add-rest"> a page</span></button>
       {/* The first page stays: it holds the title and date. */}
       {pageNo > 1 && <button type="button" className="pager-remove" onClick={removePage} aria-label="Remove this page">Remove</button>}
     </div>

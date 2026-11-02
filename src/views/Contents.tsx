@@ -35,13 +35,14 @@ export default function Contents({ lengths, open }: { lengths: Lengths | null; o
         <>
           <h1 className="contents-title">The Holy Bible</h1>
           <p className="contents-sub">Choose a book to begin a study.</p>
+          <button type="button" className="quiet-link to-new" onClick={() => document.getElementById('new-testament')?.scrollIntoView()}>The New Testament ›</button>
           <div className="testaments">
             {[
               ['The Old Testament', BOOKS.slice(0, 39)],
               ['The New Testament', BOOKS.slice(39)],
             ].map(([heading, list]) => (
               <div key={heading as string}>
-                <h2>{heading as string}</h2>
+                <h2 id={heading === 'The New Testament' ? 'new-testament' : undefined}>{heading as string}</h2>
                 <ol className="book-list">
                   {(list as Book[]).map((b) => (
                     <li key={b.code}>
