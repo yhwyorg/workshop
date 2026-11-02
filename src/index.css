@@ -78,7 +78,9 @@ main { padding: 76px 20px 64px; }
   border: 1px solid var(--hairline); border-radius: 12px; background: color-mix(in srgb, var(--slip-ink) 4%, var(--slip));
   color: var(--slip-ink); text-decoration: none; font-weight: 500;
 }
-.button:hover, .page-paper button:hover { background: color-mix(in srgb, var(--slip-ink) 8%, var(--slip)); }
+/* Hover only with a real pointer, everywhere in this file: after a tap a touch screen keeps
+   :hover, so a word just tapped, or the one where the finger last was, stayed tinted. */
+@media (hover: hover) { .button:hover, .page-paper button:hover { background: color-mix(in srgb, var(--slip-ink) 8%, var(--slip)); } }
 button.danger { color: var(--accent); }
 button:disabled { opacity: 0.35; cursor: default; }
 
@@ -110,7 +112,7 @@ button:disabled { opacity: 0.35; cursor: default; }
   display: block; text-align: left; padding: 11px 12px; border: 0; border-radius: 10px; background: none;
   color: var(--slip-ink); text-decoration: none; font-size: 1.02rem; min-height: 44px;
 }
-.menu a:hover, .menu > button:hover { background: color-mix(in srgb, var(--slip-ink) 7%, transparent); }
+@media (hover: hover) { .menu a:hover, .menu > button:hover { background: color-mix(in srgb, var(--slip-ink) 7%, transparent); } }
 .menu > button.danger { color: var(--accent); }
 .menu hr { width: 100%; border: 0; border-top: 1px solid var(--hairline); margin: 8px 0; }
 .menu-brand { font-family: var(--font-scripture); font-size: 1.2rem; font-weight: 500; margin: 4px 12px 14px; }
@@ -127,20 +129,22 @@ button:disabled { opacity: 0.35; cursor: default; }
 .contents-title { text-align: center; font-variant: small-caps; letter-spacing: 0.1em; }
 .contents-sub { text-align: center; color: var(--muted); margin: 0 0 24px; }
 .testaments { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 40px; }
+/* On a phone only: there the Old Testament alone is twenty rows to scroll past. */
+.to-new, .page-paper .to-new { display: none; margin: 0 auto 10px; }
 .testaments h2 { font-family: var(--font-ui); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 6px; }
 .book-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 12px; }
 .book-list button, .page-paper .book-list button {
   display: block; width: 100%; min-height: 40px; padding: 6px 8px; text-align: left; border: 0; border-radius: 8px;
   background: none; font-family: var(--font-scripture); font-size: 1.05rem; font-weight: 400;
 }
-.book-list button:hover { background: color-mix(in srgb, var(--slip-ink) 6%, transparent); }
+@media (hover: hover) { .book-list button:hover { background: color-mix(in srgb, var(--slip-ink) 6%, transparent); } }
 .quiet-link, .page-paper .quiet-link { border: 0; background: none; color: var(--muted); padding: 4px 0; min-height: 0; }
 .chapter-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 8px; }
 .chapter-grid button, .page-paper .chapter-grid button {
   width: 100%; min-height: 50px; padding: 0; border: 1px solid var(--hairline); border-radius: 12px;
   background: color-mix(in srgb, var(--slip-ink) 3%, var(--slip)); font-family: var(--font-scripture); font-size: 1.1rem; font-weight: 400;
 }
-.chapter-grid button:hover { background: color-mix(in srgb, var(--slip-ink) 8%, var(--slip)); }
+@media (hover: hover) { .chapter-grid button:hover { background: color-mix(in srgb, var(--slip-ink) 8%, var(--slip)); } }
 .chapter-grid button[aria-current='page'] { background: var(--slip-ink); color: var(--slip); border-color: var(--slip-ink); }
 .typed { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--hairline); display: grid; gap: 6px; }
 .typed label { color: var(--muted); font-size: 0.9rem; }
@@ -185,7 +189,8 @@ button:disabled { opacity: 0.35; cursor: default; }
   content: ''; position: absolute; inset: 40% 9px; border-radius: 3px;
   background: color-mix(in srgb, var(--slip-ink) 25%, transparent); opacity: 0; transition: opacity 0.15s;
 }
-.notes-edge:hover::after, .notes-edge:focus-visible::after, .notes-edge:active::after { opacity: 1; }
+.notes-edge:focus-visible::after, .notes-edge:active::after { opacity: 1; }
+@media (hover: hover) { .notes-edge:hover::after { opacity: 1; } }
 .notes-edge:focus-visible { outline: none; }
 .notes-edge:focus-visible::after { background: var(--accent); }
 /* Folding: the notepad becomes a strip; the Bible has the room. */
@@ -195,7 +200,7 @@ button:disabled { opacity: 0.35; cursor: default; }
   position: sticky; top: 10px; float: left; z-index: 4; margin: -34px 0 0 8px; min-width: 36px; height: 36px; border: 0; border-radius: 10px;
   background: none; color: var(--muted); font-size: 1.3rem; cursor: pointer;
 }
-.notes-fold:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); }
+@media (hover: hover) { .notes-fold:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); } }
 .workspace.notes-folded .notes-pane { overflow: hidden; padding: 0; }
 .workspace.notes-folded .notes-pane > :not(.notes-unfold) { display: none; }
 .notes-unfold {
@@ -203,7 +208,7 @@ button:disabled { opacity: 0.35; cursor: default; }
   color: var(--muted); font-weight: 600; letter-spacing: 0.08em;
 }
 .notes-unfold span { writing-mode: vertical-rl; }
-.notes-unfold:hover { color: var(--slip-ink); background: color-mix(in srgb, var(--slip-ink) 5%, transparent); }
+@media (hover: hover) { .notes-unfold:hover { color: var(--slip-ink); background: color-mix(in srgb, var(--slip-ink) 5%, transparent); } }
 .notes-unfold:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
 
 /* A phone's tabs: Bible | each reference | Notes. Elsewhere every pane is on screen. */
@@ -245,7 +250,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 .ref-picker .picker-head { margin: 4px 6px 6px; font-size: 0.78rem; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .ref-choices { list-style: none; margin: 0 0 10px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 2px; }
 .ref-choices button { all: unset; box-sizing: border-box; display: block; width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 10px; cursor: pointer; color: var(--slip-ink); }
-.ref-choices button:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); }
+@media (hover: hover) { .ref-choices button:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); } }
 .ref-choices button:focus-visible { outline: 2px solid var(--accent); }
 .ref-choices button[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 12%, transparent); font-weight: 600; }
 .ref-scope { color: var(--muted); font-size: 0.86em; font-weight: 400; }
@@ -318,7 +323,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 .vn-open { all: unset; line-height: 1; text-indent: 0; position: relative; cursor: pointer; border-radius: 4px; }
 /* At least 24px each way to tap (WCAG 2.5.8), for older hands; it was 20 wide. */
 .vn-open::after { content: ''; position: absolute; inset: -12px -9px; }
-.vn-open:hover, .drop:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+@media (hover: hover) { .vn-open:hover, .drop:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; } }
 .vn-open:focus-visible, .drop:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ---------- An opened verse ---------- */
@@ -345,7 +350,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 .vp-ref {
   all: unset; cursor: pointer; font-weight: 650; color: var(--accent); font-size: 0.95rem; border-radius: 4px;
 }
-.vp-ref:hover { text-decoration: underline; text-underline-offset: 3px; }
+@media (hover: hover) { .vp-ref:hover { text-decoration: underline; text-underline-offset: 3px; } }
 .vp-ref:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .vp-words { margin: 2px 0 0; font-family: var(--font-scripture); line-height: 1.55; color: var(--slip-ink); }
 .vp-note { margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--slip-ink) 4%, transparent); }
@@ -360,7 +365,7 @@ button:disabled { opacity: 0.35; cursor: default; }
   all: unset; box-sizing: border-box; display: inline-grid; justify-items: center; gap: 1px; min-width: 44px; padding: 6px 8px;
   border-radius: 10px; cursor: pointer; text-align: center;
 }
-.og-word:hover { background: color-mix(in srgb, var(--slip-ink) 6%, transparent); }
+@media (hover: hover) { .og-word:hover { background: color-mix(in srgb, var(--slip-ink) 6%, transparent); } }
 .og-word:focus-visible { outline: 2px solid var(--accent); }
 .og-word[aria-expanded='true'] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 /* Greek and Hebrew from the system's fonts: Literata covers Greek; Hebrew falls back to
@@ -385,7 +390,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 /* text-indent 0: a button lays out its own text, so it took each paragraph's first-
    line indent inside every word (words overlapped in poetry, spread apart in prose). */
 .word { all: unset; text-indent: 0; cursor: pointer; border-radius: 3px; }
-.word:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+@media (hover: hover) { .word:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); } }
 .word:focus-visible { outline: 2px solid var(--accent); }
 .word.mark-underline { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; }
 .word.mark-circle { border: 2px solid var(--accent); border-radius: 50% / 55%; padding: 0 4px; margin: 0 -2px; }
@@ -462,7 +467,7 @@ button:disabled { opacity: 0.35; cursor: default; }
   position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px;
   margin: 0 0 6px; padding: 4px 12px 4px 48px; background: var(--paper);
 }
-@media (max-width: 599px) { .notes-bar { padding-left: 12px; } }
+@media (max-width: 599px), (max-height: 500px) { .notes-bar { padding-left: 12px; } }
 .notes-bar button, .pager-which {
   min-height: 44px; border: 0; border-radius: 10px; background: none; color: var(--slip-ink); font-family: var(--font-ui); font-size: 0.95rem; font-weight: 600;
 }
@@ -493,7 +498,7 @@ button:disabled { opacity: 0.35; cursor: default; }
   background: none; color: var(--slip-ink); font-size: 1.35rem; line-height: 1;
 }
 .tb-place { font-size: 1rem; font-weight: 600; padding: 0 14px; white-space: nowrap; }
-.tb-icon:hover:not(:disabled), .tb-place:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); }
+@media (hover: hover) { .tb-icon:hover:not(:disabled), .tb-place:hover { background: color-mix(in srgb, var(--slip-ink) 8%, transparent); } }
 .tb-icon[aria-pressed='true'] { background: color-mix(in srgb, var(--slip-ink) 12%, transparent); }
 .tb-sep { width: 1px; height: 24px; margin: 0 6px; background: var(--hairline); }
 .tb-pens { display: flex; align-items: center; gap: 2px; }
@@ -557,7 +562,7 @@ button:disabled { opacity: 0.35; cursor: default; }
   min-height: 34px; padding: 0 12px; margin-right: 4px; border: 1.5px dashed var(--hairline); border-radius: 17px;
   background: none; color: var(--muted); font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
-.pen-slot:hover { color: var(--slip-ink); border-color: var(--muted); }
+@media (hover: hover) { .pen-slot:hover { color: var(--slip-ink); border-color: var(--muted); } }
 /* The pen, laid on the page: a little larger, at a slight angle, with the shadow of
    something resting on paper. */
 .pen-loose {
@@ -572,7 +577,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 /* Off to the side when first tucked away, clear of the text's middle. */
 .toolbar.tucked:not(.moved) { left: auto; right: 16px; transform: none; }
 /* A phone has no pens to shrink, and its toolbar needs the room for the chevron. */
-@media (max-width: 599px) { .toolbar { padding: 4px 3px; } .tb-place { padding: 0 4px; } }
+@media (max-width: 599px), (max-height: 500px) { .toolbar { padding: 4px 3px; } .tb-place { padding: 0 4px; } }
 .tb-open, .tb-tuck {
   all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; border-radius: 12px;
   cursor: pointer; color: var(--slip-ink); font-family: var(--font-ui); font-size: 16px; font-weight: 600;
@@ -591,7 +596,7 @@ button:disabled { opacity: 0.35; cursor: default; }
   background: radial-gradient(circle, var(--muted) 1.3px, transparent 1.6px) 0 0 / 4px 4px;
   opacity: 0.7;
 }
-.tb-grip:hover span { opacity: 1; }
+@media (hover: hover) { .tb-grip:hover span { opacity: 1; } }
 .tb-grip:active { cursor: grabbing; }
 .tb-grip:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* The fountain pen is one button: the pen. */
@@ -619,7 +624,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 .study-list { list-style: none; padding: 0; margin: 12px 0 24px; }
 .study-list li + li { border-top: 1px solid var(--hairline); }
 .study-list a { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; padding: 14px 8px; border-radius: 10px; color: var(--slip-ink); text-decoration: none; }
-.study-list a:hover { background: color-mix(in srgb, var(--slip-ink) 5%, transparent); }
+@media (hover: hover) { .study-list a:hover { background: color-mix(in srgb, var(--slip-ink) 5%, transparent); } }
 .study-title { font-family: var(--font-scripture); font-size: 1.15rem; }
 .study-passage { grid-row: 2; color: var(--muted); font-size: 0.9rem; }
 .study-date { grid-column: 2; grid-row: 1; color: var(--muted); font-size: 0.86rem; align-self: center; }
@@ -716,14 +721,18 @@ button:disabled { opacity: 0.35; cursor: default; }
   .notes-fold { top: 10px; }
   .notes-unfold span { writing-mode: horizontal-tb; }
 }
-/* A phone: one pane at a time, a tap apart. */
-@media (max-width: 599px) {
+/* A phone: one pane at a time, a tap apart. On its side too (keep in step with StudyView). */
+@media (max-width: 599px), (max-height: 500px) {
   main { padding: 72px 14px 64px; }
   .testaments { grid-template-columns: 1fr; }
   .workspace, .workspace.has-ref { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: 'switch' 'pane'; }
   .refs { display: contents; }
-  .pane-tabs button { min-width: 64px; padding: 0 12px; white-space: nowrap; }
-  .workspace .pane { grid-area: pane; border: 0; padding-top: 20px; }
+  /* 44px, for older hands, and the whole width to aim at. */
+  .pane-switch { padding: 6px 12px 0; }
+  .pane-tabs { flex: 1; max-width: 480px; }
+  .pane-tabs button { flex: 1 0 auto; min-height: 44px; min-width: 64px; padding: 0 12px; white-space: nowrap; }
+  /* Room to read the last verse clear of the docked toolbar. */
+  .workspace .pane { grid-area: pane; border: 0; padding-top: 20px; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   .workspace .pane:not(.front) { display: none; }
   .scripture { font-size: 1.1rem; }
   .tb-pens-sep, .tb-pens { display: none; }
@@ -732,6 +741,66 @@ button:disabled { opacity: 0.35; cursor: default; }
      up above the keyboard, which the browser won't make for a pane within the page. */
   .workspace.typing .toolbar { display: none; }
   .workspace.typing .notes-pane { padding-bottom: 60vh; }
+
+  /* The toolbar docks along the bottom and is solid. Floating, it lay across the verses
+     being read, with the words showing through it behind its own buttons. There is nothing
+     to move it clear of here, so no grip: the room went to the words. */
+  .toolbar:not(.tucked) {
+    left: 0; right: 0; bottom: 0; width: auto; max-width: none; transform: none; flex-wrap: nowrap; justify-content: space-between;
+    border-radius: 0; border-width: 1px 0 0; box-shadow: none; background: var(--slip); -webkit-backdrop-filter: none; backdrop-filter: none;
+    padding: 4px max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
+  }
+  .toolbar:not(.tucked) .tb-grip { display: none; }
+  /* The place gives way first, so a long name can never push a button off the screen. */
+  .toolbar:not(.tucked) .tb-place { display: block; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .toolbar.tucked { background: var(--slip); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .toolbar.tucked:not(.moved) { bottom: max(12px, env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right)); }
+
+  /* Everything that opens above the toolbar sits just clear of it, and is solid: these are
+     read from, and the chapter behind ran through their words. */
+  .verse-panel, .chapter-picker, .chapter-picker.ref-picker {
+    bottom: calc(60px + env(safe-area-inset-bottom)); background: var(--slip); -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  .chapter-picker, .chapter-picker.ref-picker { max-height: 68vh; }
+  .menu-close { width: 44px; height: 44px; }
+  .book-list button, .page-paper .book-list button { min-height: 44px; }
+  .page-paper .quiet-link { min-height: 44px; }
+  .to-new, .page-paper .to-new { display: block; }
+  #new-testament { scroll-margin-top: 72px; }
+  .advent-book a { display: inline-block; padding: 10px 0; }
+  /* iOS zooms the whole page into any box under 16px when it is tapped, and leaves it zoomed. */
+  .pager-which { font-size: 16px; }
+
+  /* One row of pages, or the bar stood 98px tall over a screen of notes. */
+  .notes-bar.many { flex-wrap: nowrap; padding-left: 8px; padding-right: 8px; }
+  .notes-bar.many .pager-add-rest { display: none; }
+  .notes-bar.many .pager-which { flex: 0 1 auto; min-width: 0; }
+  .notes-bar.many button { flex: none; }
+}
+/* Small phones: the room for a long name comes from the arrows, which stay 44 tall. CI's fonts
+   ran about 14px wider than Windows' and cut "2 Chron 36" at 375px, so this keeps that much spare. */
+@media (max-width: 389px) {
+  .toolbar:not(.tucked) { gap: 0; }
+  .toolbar:not(.tucked) .tb-turn { min-width: 38px; padding: 0; }
+}
+/* The very smallest phones: 38px wide but still 44 tall, so "1 Thess 5" can be read whole. */
+@media (max-width: 359px) {
+  .toolbar:not(.tucked) .tb-icon, .toolbar:not(.tucked) .tb-look { min-width: 38px; padding: 0; }
+  .toolbar:not(.tucked) .tb-tuck { min-width: 28px; }
+}
+/* Where a phone has the room, the word itself: "αβ" asks the reader to know what it means. */
+@media (min-width: 375px) and (max-width: 599px), (max-height: 500px) {
+  .tb-look-word { display: inline; }
+  .tb-look-letters { display: none; }
+}
+/* On its side a phone is short of height, not width, so the tabs join the toolbar's row. */
+@media (max-height: 500px) {
+  .pane-switch { position: fixed; z-index: 16; padding: 0; right: max(4px, env(safe-area-inset-right)); bottom: max(4px, env(safe-area-inset-bottom)); max-width: 40vw; }
+  .pane-tabs { padding: 0; }
+  .toolbar:not(.tucked) { justify-content: flex-start; }
+  .workspace .pane { padding-top: 12px; }
+  .workspace.typing .pane-switch { position: static; padding: 4px 12px 0; max-width: none; justify-content: center; }
+  .toolbar.tucked:not(.moved) { right: auto; left: max(12px, env(safe-area-inset-left)); }
 }
 
 .print-lines, .print-text { display: none; }
