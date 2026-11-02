@@ -69,7 +69,8 @@ test.describe('the toolbar', () => {
     await expect.poll(async () => Math.round((await box(page, '.toolbar')).y)).toBe(Math.round(home.y));
   });
 
-  test('moves with the arrow keys too', async ({ page }) => {
+  test('moves with the arrow keys too', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'docked along the bottom there: phone.spec.ts');
     await beginStudy(page, 'John', 15);
     const home = await box(page, '.toolbar');
     await page.getByRole('button', { name: 'Move the toolbar' }).focus();
@@ -77,7 +78,8 @@ test.describe('the toolbar', () => {
     expect(home.y - (await box(page, '.toolbar')).y).toBeGreaterThan(80);
   });
 
-  test('never leaves the screen, however far it is dragged', async ({ page }) => {
+  test('never leaves the screen, however far it is dragged', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'docked along the bottom there: phone.spec.ts');
     await beginStudy(page, 'John', 15);
     await dragFrom(page, centre(await box(page, '.tb-grip')), { x: -4000, y: -4000 });
     const b = await box(page, '.toolbar');
