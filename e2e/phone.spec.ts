@@ -6,9 +6,7 @@ import { beginStudy, draw, expect, savedStudies, show, test } from './fixtures';
  * this: a finger's swipe to scroll the notes drew a line instead, and a phone's toolbar
  * has no Undo or eraser, so the line could never be taken off.
  */
-test.beforeEach(({}, info) => {
-  test.skip(info.project.name !== 'phone', 'phone only');
-});
+test.skip(({ viewport }) => (viewport?.width ?? 0) >= 600, 'phone only');
 
 const notes = (page: Page) => page.getByLabel('Notes', { exact: true });
 const strokes = async (page: Page) => (await savedStudies(page))[0]?.ink?.pad?.strokes?.length ?? 0;
