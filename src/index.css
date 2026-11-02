@@ -727,6 +727,11 @@ button:disabled { opacity: 0.35; cursor: default; }
   .workspace .pane:not(.front) { display: none; }
   .scripture { font-size: 1.1rem; }
   .tb-pens-sep, .tb-pens { display: none; }
+  /* While typing, the keyboard covers the bottom of the screen. The toolbar would sit behind
+     it or float loose as iOS shifts the page, and the end of the notes needs room to scroll
+     up above the keyboard, which the browser won't make for a pane within the page. */
+  .workspace.typing .toolbar { display: none; }
+  .workspace.typing .notes-pane { padding-bottom: 60vh; }
 }
 
 .print-lines, .print-text { display: none; }

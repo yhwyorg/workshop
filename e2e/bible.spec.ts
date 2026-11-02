@@ -1,4 +1,4 @@
-import { beginStudy, draw, expect, savedBible, savedStudies, show, test, typeNotes } from './fixtures';
+import { beginStudy, draw, expect, savedBible, savedStudies, show, stopTyping, test, typeNotes } from './fixtures';
 
 /**
  * One Bible, every study. The user asked to "markup the bible too and put notes in there
@@ -126,6 +126,7 @@ test.describe('a backup of everything', () => {
     await typeNotes(page, 'Remain.');
     await expect.poll(async () => (await savedBible(page)).ink['15']?.strokes.length).toBe(1);
     await expect.poll(async () => (await savedStudies(page))[0]?.notes?.page).toBe('Remain.');
+    await stopTyping(page);
     await menu(page).click();
     await expect(page.getByText('Not saved yet on this device')).toBeVisible();
     const saving = page.waitForEvent('download');
